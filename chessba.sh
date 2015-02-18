@@ -117,18 +117,33 @@ aikeyword="ai"
 aiPlayerA="Marvin"
 aiPlayerB="R2D2"
 
+# lookup tables
+#TODO: import/export
 declare -A cacheLookup
 declare -A cacheFlag
 declare -A cacheDepth
 
-declare -a field=(	 4  2  3  6  5  3  2  4 \
-					 1  1  1  1  1  1  1  1 \
-					 0  0  0  0  0  0  0  0 \
-					 0  0  0  0  0  0  0  0 \
-					 0  0  0  0  0  0  0  0 \
-					 0  0  0  0  0  0  0  0 \
-					-1 -1 -1 -1 -1 -1 -1 -1 \
-					-4 -2 -3 -6 -5 -3 -2 -4 )
+# associative arrays are fast[er than numeric ones] and way more readable - TODO Src
+declare -A field
+
+# Initialize setting - first row
+declare -a initline=( 4  2  3  6  5  3  2  4 )
+for (( x=0; x<8; x++ )) ; do
+	field[0,$x]=${initline[$x]}
+	field[7,$x]=$(( (-1) * ${initline[$x]} ))
+done
+# set pawns
+for (( x=0; x<8; x++ )) ; do
+	field[1,$x]=1
+	field[6,$x]=-1
+done
+# set empty fields
+for (( y=2; y<6; y++ )) ; do
+	for (( x=0; x<8; x++ )) ; do
+		field[$y,$x]=0
+	done
+done
+
 
 declare -a figNames=( "(empty)" "pawn" "knight" "bishop" "rook" "queen" "king" )
 declare -a asciiNames=( "k" "q" "r" "b" "n" "p" " " "P" "N" "B" "R" "Q" "K" )
@@ -196,7 +211,7 @@ function hasKing(){
 	local y
 	for (( y=0;y<8;y++ )) ; do
 		for (( x=0;x<8;x++ )) ; do
-			if (( ${field[$y*8+$x]} * $player == 6 )) ; then
+			if (( ${field[$y,$x]} * $player == 6 )) ; then
 				return 0
 			fi
 		done
@@ -204,16 +219,14 @@ function hasKing(){
 	return 1
 }
 
-# check single mov
+# check single movement
 # Params:
-#	$1	fromY
-#	$2	fromX
-#	$3	toY
-#	$4	toX
-#	$5	player
-# Returns true if move is valid.
-
-#TODO: Change/check return: exit 0 == true && 1 == false !!!!
+#	$1	origin Y position
+#	$2	origin X position
+#	$3	target Y position
+#	$4	target X position
+#	$5	current player
+# Returns status code 0 if move is valid.
 function canMove() { 
 	local fromY=$1
 	local fromX=$2
@@ -225,14 +238,14 @@ function canMove() {
 	if (( $fromY < 0 || $fromY >= 8 || $fromX < 0 || $fromX >= 8 || $toY < 0 || $toY >= 8 || $toX < 0 || $toX >= 8 || ( $fromY == $toY && $fromX == $toX ) )) ; then
 		return 1
 	fi
-	local from=${field[$fromY*8+$fromX]}
-	local to=${field[$toY*8+$toX]}
+	local from=${field[$fromY,$fromX]}
+	local to=${field[$toY,$toX]}
 	local fig=$(( $from * $player ))
 	if (( $from == 0 || $from*$player < 0 || $to*$player > 0 || $player*$player != 1 )) ; then
 		return 1
 	# pawn
 	elif (( $fig == 1 )) ; then 
-		if (( $fromX == $toX && $to == 0 && ( $toY - $fromY == $player || ( $toY - $fromY == 2 * $player && ${field[($player + $fromY) * 8 + $fromX]} == 0 && $fromY == ( $player > 0 ? 1 : 6 ) ) ) )) ; then
+		if (( $fromX == $toX && $to == 0 && ( $toY - $fromY == $player || ( $toY - $fromY == 2 * $player && ${field["$(($player + $fromY)),$fromX"]} == 0 && $fromY == ( $player > 0 ? 1 : 6 ) ) ) )) ; then
 				return 0
 			else 
 				return $(( ! ( ($fromX - $toX) * ($fromX - $toX) == 1 && $toY - $fromY == $player && $to * $player < 0 ) )) 
@@ -243,14 +256,14 @@ function canMove() {
 		if (( $fig != 3 )) ; then 
 			if (( $fromX == $toX )) ; then
 				for (( i = ( $fromY < $toY ? $fromY : $toY ) + 1 ; i < ( fromY > toY ? fromY : toY ) ; i++ )) ; do
-					if (( ${field[i*8+$fromX]} != 0 )) ; then
+					if (( ${field[$i,$fromX]} != 0 )) ; then
 						return 1
 					fi
 				done
 				return 0
 			elif (( $fromY == $toY )) ; then
 				for (( i = ( $fromX < $toX ? $fromX : $toX ) + 1 ; i < ( fromX > toX ? fromX : toX ) ; i++ )) ; do
-						if (( ${field[$fromY*8+i]} != 0 )) ; then
+						if (( ${field[$fromY,$i]} != 0 )) ; then
 							return 1
 						fi
 				done
@@ -263,7 +276,7 @@ function canMove() {
 				return 1
 			fi
 			for (( i = 1 ; i < ( $fromY > toY ? $fromY - $toY : $toY - $fromY) ; i++ )) ; do
-				if (( ${field[ ($fromY + $i * ($toY - $fromY > 0 ? 1 : -1 ) ) * 8 + ( $fromX + $i * ($toX - $fromX > 0 ? 1 : -1 ) ) ]} != 0 )) ; then
+				if (( ${field[$(($fromY + $i * ($toY - $fromY > 0 ? 1 : -1 ) )),$(( $fromX + $i * ($toX - $fromX > 0 ? 1 : -1 ) ))]} != 0 )) ; then
 					return 1
 				fi
 			done
@@ -289,7 +302,6 @@ function negamax() {
 	local b=$3
 	local player=$4
 	local save=$5
-# echo $SECONDS
 	#Transposition Table
 	local aSave=$a
 	local hash="${field[@]}"
@@ -308,16 +320,6 @@ function negamax() {
 		fi
 	fi
 	# lost own king?
-#	local hasKing=false
-#	local y
-#	local x
-#	for (( y=0; y<8; y++ )) ; do
-#		for (( x=0; x<8; x++ )) ; do
-#			if (( ${field[$y*8+$x]} * $player == 6 )) ; then
-#				hasKing=true
-#			fi
-#		done
-#	done
 	if ! hasKing $player ; then
 		cacheLookup[$hash]=1
 		cacheDepth[$hash]=$depth
@@ -328,11 +330,10 @@ function negamax() {
 		local values=0
 		for (( y=0; y<8; y++ )) ; do
 			for (( x=0; x<8; x++ )) ; do
-				local fig=${field[$y*8+$x]}
-				if (( ${field[$y*8+$x]} != 0 )) ; then
+				local fig=${field[$y,$x]}
+				if (( ${field[$y,$x]} != 0 )) ; then
 					local figPlayer=$(( $fig < 0 ? -1 : 1 ))
-					# ultra simple heuristic: 
-#values=$(( $values + $fig ))
+					# a more simple heuristic would be values=$(( $values + $fig ))
 					values=$(( $values + ${figValues[$fig * $figPlayer]} * $figPlayer ))
 					# pawns near to end are better
 					if (( $fig == 1 )) ; then
@@ -367,7 +368,7 @@ function negamax() {
 		local j
 		for (( fromY=0; fromY<8; fromY++ )) ; do
 			for (( fromX=0; fromX<8; fromX++ )) ; do
-				local fig=$(( ${field[ $fromY * 8 + $fromX ]} * ( $player ) ))
+				local fig=$(( ${field[$fromY,$fromX]} * ( $player ) ))
 				# precalc possible fields (faster then checking every 8*8 again)
 				local targetY=()
 				local targetX=()
@@ -457,19 +458,19 @@ function negamax() {
 					local toX=${targetX[$j]}
 					# move is valid
 					if (( $toY >= 0 && $toY < 8 && $toX >= 0 && $toX < 8 )) &&  canMove $fromY $fromX $toY $toX $player ; then
-						local oldFrom=${field[fromY*8+fromX]};
-						local oldTo=${field[toY*8+toX]};
-						field[$fromY*8+$fromX]=0
-						field[$toY*8+$toX]=$oldFrom
+						local oldFrom=${field[$fromY,$fromX]};
+						local oldTo=${field[$toY,$toX]};
+						field[$fromY,$fromX]=0
+						field[$toY,$toX]=$oldFrom
 						# pawn to queen
 						if (( $oldFrom == $player && $toY == ( $player > 0 ? 7 : 0 ) )) ;then
-							field[$toY*8+$toX]=$(( 5 * $player )) 
+							field["$toY,$toX"]=$(( 5 * $player )) 
 						fi
 						# recursion
 						negamax $(( $depth - 1 )) $(( 255 - $b )) $(( 255 - $a )) $(( $player * (-1) )) false
 						local val=$(( 255 - $? ))
-						field[$fromY*8+$fromX]=$oldFrom
-						field[$toY*8+$toX]=$oldTo
+						field[$fromY,$fromX]=$oldFrom
+						field[$toY,$toX]=$oldTo
 						if (( $val > $bestVal )) ; then
 							bestVal=$val
 							if $save ; then
@@ -505,12 +506,12 @@ function negamax() {
 function move(){
 	local player=$1
 	if canMove $selectedY $selectedX $selectedNewY $selectedNewX $player ; then
-		local fig=${field[$selectedY*8+$selectedX]}
-		field[$selectedY*8+$selectedX]=0
-		field[$selectedNewY*8+$selectedNewX]=$fig
+		local fig=${field[$selectedY,$selectedX]}
+		field[$selectedY,$selectedX]=0
+		field[$selectedNewY,$selectedNewX]=$fig
 		# pawn to queen
 		if (( $fig == $player && $selectedNewY == ( $player > 0 ? 7 : 0 ) )) ; then
-			field[$selectedNewY*8+$selectedNewX]=$(( 5 * $player )) 
+			field[$selectedNewY,$selectedNewX]=$(( 5 * $player )) 
 		fi
 		return 0
 	fi
@@ -522,7 +523,7 @@ function move(){
 # Unicode helper function (for draw) 
 # Params:
 #	$1	decimal unicode character number
-# Returns escape character
+# Outputs escape character
 function unicode() {
 	if ! $ascii ; then
 		printf '\\u%x\n' $1
@@ -550,7 +551,7 @@ function draw() {
 		# clear format
 		echo -en "\e[0m  "
 		for (( x=0; x<8; x++ )) ; do
-			local f=${field[$y*8+$x]}
+			local f=${field["$y,$x"]}
 			local black=false
 			if (( (x+y)%2 == 0 )) ; then
 				local black=true
@@ -563,7 +564,7 @@ function draw() {
 			fi
 			# background
 			if (( $selectedX != -1 && $selectedY != -1 )) ; then
-				local selectedPlayer=$(( ${field[ $selectedY * 8 + $selectedX ]} > 0 ? 1 : -1 ))
+				local selectedPlayer=$(( ${field[$selectedY,$selectedX]} > 0 ? 1 : -1 ))
 				if (( $selectedX == $x && $selectedY == $y )) ; then
 					if ! $color ; then 
 						echo -en "\e[2m"
@@ -676,16 +677,16 @@ function input() {
 			selectedY=$?
 			inputX "$imsg `ascii $(( 48 - $selectedY ))`"
 			selectedX=$?
-			if (( ${field[$selectedY * 8 + $selectedX]} == 0 )) ; then
+			if (( ${field["$selectedY,$selectedX"]} == 0 )) ; then
 				warn "You cannot choose an empty field!"
-			elif (( ${field[$selectedY * 8 + $selectedX]} * $player  < 0 )) ; then
+			elif (( ${field["$selectedY,$selectedX"]} * $player  < 0 )) ; then
 				warn "You cannot choose your enemies figures!"
 			else
 				break
 			fi
 		done
 		draw
-		local figName=$(nameFigure ${field[ $selectedY * 8 + $selectedX ]} )
+		local figName=$(nameFigure ${field[$selectedY,$selectedX]} )
 		local imsg="$imsg `coord $selectedY $selectedX` ($figName) to"
 		while true ; do
 			inputY "$imsg"
@@ -696,7 +697,7 @@ function input() {
 				warn "You didn't move..."
 				sleep $sleep
 				break
-			elif (( ${field[$selectedNewY * 8 + $selectedNewX]} * $player > 0 )) ; then
+			elif (( ${field[$selectedNewY,$selectedNewX]} * $player > 0 )) ; then
 				warn "You cannot kill your own figures!"
 			elif move $player ; then
 				message="`namePlayer $player` moved the $figName from `coord $selectedY $selectedX` to `coord $selectedNewY $selectedNewX` (took him $SECONDS seconds)."
@@ -717,7 +718,7 @@ function ai() {
 	echo -e "Computer player \e[1m`namePlayer $player`\e[0m is thinking..."
 	negamax $strength 0 255 $player
 	val=$?
-	local figName=$(nameFigure ${field[ $selectedY * 8 + $selectedX ]} )
+	local figName=$(nameFigure ${field[$selectedY,$selectedX]} )
 	draw
 	echo -e "\e[1m$( namePlayer $player )\e[0m moves the \e[3m$figName\e[0m at $(coord $selectedY $selectedX)..."
 	sleep $sleep
