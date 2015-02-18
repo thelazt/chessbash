@@ -13,20 +13,31 @@ ascii=false
 warnings=false
 computer=-1
 sleep=2
+cache=""
+cachecompress=false
 
-
+# Help message
+# Writes text to stdout
 function help {
 	echo "\e[1mChess Bash\e[0m - a small chess game written in Bash"
 	echo
 	echo "Usage: $0 [options]"
+	echo
+	echo "Game options"
 	echo "    -a NAME    Name of first player - or \"ai\" for computer controlled"
 	echo "               (Default: $namePlayerA)"
 	echo "    -b NAME    Name of second player - or \"ai\" for computer controlled"
 	echo "               (Default: $namePlayerB)"
 	echo "    -s NUMBER  strength of computer (Default: $strength)"
 	echo "    -w NUMBER  Waiting time for messages in seconds (Default: $sleep)"
+	echo
+	echo "Cache management"
+	echo "    -c FILE    makes cache permanent - load and store calculated moves"
+	echo "    -z         compress cache file (only to be used with -c, requires gzip)"
+	echo "    -t STEPS   exit after STEPS ai turns and print time (for benchmark)"
+	echo
+	echo "Output control"
 	echo "    -h         this help message"
-	echo "    -c STEPS   exit after STEPS ai turns and print time (for benchmark)"
 	echo "    -i         enable verbose input warning messages"
 	echo "    -p         plain ascii output (instead of cute unicode figures)"
 	echo "    -d         disable colors (only black/white output)"
@@ -35,9 +46,11 @@ function help {
 	echo "    -B NUMBER  Color code of second player (Default: $colorPlayerB)"
 	echo "    -n         use normal (instead of color filled) figures"
 	echo "    -m         disable color marking of possible moves"
+	echo
 }
 
-while getopts ":a:A:b:B:c:s:w:dhimnp" options; do
+# Parse command line arguments
+while getopts ":a:A:b:B:c:s:t:w:dhimnpz" options; do
 	case $options in
 		a )	if [[ -z "$OPTARG" ]] ;then
 				echo "No valid name for first player specified!" >&2
@@ -81,7 +94,14 @@ while getopts ":a:A:b:B:c:s:w:dhimnp" options; do
 				exit 1
 			fi
 			;;
-		c )	if [[ "$OPTARG" =~ ^[0-9]+$ ]] ;then
+		c )	if [[ -z "$OPTARG" ]] ;then
+				echo "No valid path for cache file!" >&2
+				exit 1
+			else
+				cache="$OPTARG"
+			fi
+			;;
+		t )	if [[ "$OPTARG" =~ ^[0-9]+$ ]] ;then
 				computer=$OPTARG
 			else
 				echo "'$OPTARG' is not a valid number for steps!" >&2
@@ -97,6 +117,13 @@ while getopts ":a:A:b:B:c:s:w:dhimnp" options; do
 		p )	ascii=true
 			;;
 		i )	warnings=true
+			;;
+		z )	if which gzip && which zcat ; then
+				cachecompress=true
+			else
+				echo "Missing gzip/zcat for compression"
+				exit 1
+			fi
 			;;
 		h )	help
 			exit 0
@@ -144,9 +171,11 @@ for (( y=2; y<6; y++ )) ; do
 	done
 done
 
-
+# readable figure names
 declare -a figNames=( "(empty)" "pawn" "knight" "bishop" "rook" "queen" "king" )
+# ascii figure names (for ascii output)
 declare -a asciiNames=( "k" "q" "r" "b" "n" "p" " " "P" "N" "B" "R" "Q" "K" )
+# figure weight (for heuristic)
 declare -a figValues=( 0 1 5 5 6 17 42 )
 
 # Error message, p.a. on bugs
@@ -177,10 +206,19 @@ function abs(){
 	fi
 }
 
+# readable coordinates
+# Params:
+#	$1	row position
+#	$2	column position
+# Writes coordinates to stdout
 function coord() {
 	echo -en "\x$((48-$1))$(($2+1))"
 }
 
+# check if ai player
+# Params:
+#	$1	player
+# Return status code 0 if ai player
 function isAI() {
 	if (( $1 < 0 )) ; then
 		[ "${namePlayerA,,}" == "$aikeyword" ] && return 0 || return 1
@@ -189,6 +227,10 @@ function isAI() {
 	fi
 }
 
+# Get name of player
+# Params:
+#	$1	player
+# Writes name to stdout
 function namePlayer() {
 	if (( $1 < 0 )) ; then
 		isAI $1 && echo -n $aiPlayerA || echo -n $namePlayerA
@@ -197,6 +239,10 @@ function namePlayer() {
 	fi
 }
 
+# Get name of figure
+# Params:
+#	$1	figure
+# Writes name to stdout
 function nameFigure() {
 	if (( $1 < 0 )) ; then
 		echo -n ${figNames[$1*(-1)]}
@@ -205,6 +251,11 @@ function nameFigure() {
 	fi
 }
 
+# Check win/loose position
+# (player has king?)
+# Params:
+#	$1	player
+# Return status code 1 if no king
 function hasKing(){
 	local player=$1;
 	local x
@@ -219,7 +270,7 @@ function hasKing(){
 	return 1
 }
 
-# check single movement
+# Check single movement
 # Params:
 #	$1	origin Y position
 #	$2	origin X position
@@ -296,6 +347,10 @@ function canMove() {
 	fi
 }
 
+# minimax (game theory) algorithm for evaluate possible movements
+# (the heart of the ai)
+# currently based on negamax with alpha/beta pruning and transposition tables liked described in
+# http://en.wikipedia.org/wiki/Negamax#NegaMax_with_Alpha_Beta_Pruning_and_Transposition_Tables
 function negamax() {
 	local depth=$1
 	local a=$2
@@ -503,6 +558,15 @@ function negamax() {
 	fi
 }
 
+# Make movement
+# Params:
+# 	$1	current player
+# Globals: 
+#	$selectedY
+#	$selectedX
+#	$selectedNewY
+#	$selectedNewX
+# Return status code 0 if movement was successfully performed
 function move(){
 	local player=$1
 	if canMove $selectedY $selectedX $selectedNewY $selectedNewX $player ; then
@@ -518,8 +582,6 @@ function move(){
 	return 1
 }
 
-
-
 # Unicode helper function (for draw) 
 # Params:
 #	$1	decimal unicode character number
@@ -530,6 +592,10 @@ function unicode() {
 	fi
 }
 
+# Ascii helper function (for draw) 
+# Params:
+#	$1	decimal ascii character number
+# Outputs escape character
 function ascii() {
 	echo -en "\x$1"
 }
@@ -625,6 +691,7 @@ function draw() {
 	echo -e "  \e[0m\n"
 }
 
+# Read row from user
 function inputY() {
 	local i
 	while true; do
@@ -648,6 +715,7 @@ function inputY() {
 	done
 }
 
+# Read column from user
 function inputX() {
 	local i
 	while true; do
@@ -663,6 +731,10 @@ function inputX() {
 	done
 }
 
+# player input
+# (reads a valid user movement)
+# Params
+# 	$1	current (user) player
 function input() {
 	local player=$1
 	SECONDS=0
@@ -709,6 +781,11 @@ function input() {
 	done
 }
 
+# AI interaction
+# (calculating movement)
+# Params
+# 	$1	current (ai) player
+# Verbose movement messages to stdout
 function ai() {
 	local player=$1
 	local val
@@ -732,14 +809,66 @@ function ai() {
 	fi
 }
 
+# Importing cache
+# (reading serialised cache from stdin)
+function importCache() {
+	while IFS=$'\t' read hash lookup depth flag ; do
+		cacheLookup["$hash"]=$lookup
+		cacheDepth["$hash"]=$depth
+		cacheFlag["$hash"]=$flag
+	done
+}
 
+# Exporting cache
+# Outputs serialised cache (to stdout)
+function exportCache() {
+	for hash in "${!cacheLookup[@]}" ; do
+		echo -e "$hash\t${cacheLookup[$hash]}\t${cacheDepth[$hash]}\t${cacheFlag[$hash]}"
+	done
+}
+
+# Exit tasks 
+# (exporting cache, measuring running time)
+function end() {
+	# permanent cache: export
+	if [[ -n "$cache" ]] ; then
+		echo -en "\r\n\e[2mExporting cache..."
+		if $cachecompress ; then
+			exportCache | gzip > "$cache"
+		else
+			exportCache > "$cache"
+		fi
+		echo -e " done!\e[0m"
+	fi
+	# exit message
+	duration=$(( $( date +%s%N ) - $timestamp ))
+	seconds=$(( $duration / 1000000000 )) 
+	echo -e "\r\n\e[2mYou've wasted $seconds,$(( $duration -( $seconds * 1000000000 ))) seconds.\e[0m\n\n\e[1mSee you next time in Chess Bash!\e[0m\n"
+}
+
+# set exit trap
+trap "end" 0
+
+# welcome message
 message=" Welcome to Chess`unicode 10048` Bash"
 if isAI 1 || isAI -1 ; then
 	message="$message - your room heater tool!"
 fi
 echo -e "\ec\n\e[1m$message\e[0m\n\e[2m written 2015 by Bernhard Heinloth\e[0m\n\n (Don't forget: this is just a proof-of-concept!)"
-trap "echo -e \"\e[0m\n\n\e[1mSee you next time in Chess Bash!\e[0m\n\"" 0
 sleep $sleep
+
+# permanent cache: import
+if [[ -n "$cache" && -f "$cache" ]] ; then
+	echo -en "\n\n\e[2mImporting cache..."
+	if $cachecompress ; then
+		importCache < <( zcat "$cache" )
+	else
+		importCache < "$cache"
+	fi
+	echo -e " done\e[0m"
+fi
+
+# main game loop
 p=1
 while true ; do
 	selectedX=-1
@@ -750,9 +879,7 @@ while true ; do
 	if hasKing $p ; then
 		if isAI $p ; then
 			if (( computer-- == 0 )) ; then
-				duration=$(( $( date +%s%N ) - $timestamp ))
-				seconds=$(( $duration / 1000000000 )) 
-				echo "Performed all steps. in $seconds,$(( $duration -( $seconds * 1000000000 )))!"
+				echo "Stopping - performed all ai steps"
 				exit 0
 			fi
 			ai $p
