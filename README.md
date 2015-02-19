@@ -4,26 +4,32 @@ A simple chess game written in a bash script.
 
 Features
 --------
-  * pure Bash Script
-  * Chess engine / computer enemy (and even computer vs computer)
+  * Pure Bash script
+  * Chess engine / computer enemy (and even computer versus computer)
   * Unicode support
   * Coloured output
-  * permanent transposition tables (import/export)
+  * Permanent transposition tables (import/export)
   
 *Hey, this is just a fast scrawled script, what do you expect?*
+
 
 Usage
 -----
 No installation or configuration required, of course.
-Just make it executable (`chmod +x chessba.sh`) and start the script by typing (obviously):
+Just make it executable ( `chmod +x chessba.sh` ) and start the script by typing (obviously):
 
     ./chessba.sh
 
-This will start a player vs. computer game.
+This will start a player versus computer game.
 
 Additional modes and settings are available; to list them just take a look at 
 
     ./chessba.sh -h
+    
+**To play**, simply input the coordinates (first the row denoted by the letters [A]-[H], then the column according to the numbers [1]-[8]) from the figure you want to move, afterwards the target coordinates (in the same format).
+
+**Note:** Invalid figure selections/moves are discarded with an error message. If you've chosen the wrong figure at the input, just re-enter the same coordinates and now you can select another figure.
+
 
 Rules
 -----
@@ -45,7 +51,7 @@ Therefore writing a own chess game is obvious - like millions of developer did b
 In fact it seems that chess is the most popular game for computer scientists:
 In my youth all news reported about IBM Deep Blue [playing against Kasparov](http://en.wikipedia.org/wiki/Deep_Blue_versus_Garry_Kasparov) - and defeating him. Since this time super computers are known to be invincible (at least in chess), and the continuous increase in calculating capacity makes it not a real challenge anymore (to be fair, we currently also profit from techniques developed in previous time with strongly limited memory and cpu).
 
-Hence, many hackers decided to bring up a new challenge: Writing the smallest chess game. And they were incredible successful: a
+Hence, many hackers decided to bring up a new challenge: Writing the smallest chess game. And they were incredible successful:
 [1023 bytes Javascript](http://js1k.com/2010-first/demo/750),
 [1009 bytes C source](http://nanochess.org/chess3.html)
 or even [487 bytes assembler](
