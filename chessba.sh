@@ -1,12 +1,21 @@
 #/bin/bash
+#
+# Chess Bash
+# a simple chess game written in an inappropriate language :)
+#
+# Copyright (c) 2015 by Bernhard Heinloth <bernhard@heinloth.net>
+#
+# This program is free software; you can redistribute it and/or modify it under the terms of the GNU General Public License as published by the Free Software Foundation; either version 2 of the License, or (at your option) any later version.
+# This program is distributed in the hope that it will be useful, but WITHOUT ANY WARRANTY; without even the implied warranty of MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the GNU General Public License for more details.
+# You should have received a copy of the GNU General Public License along with this program; if not, write to the Free Software Foundation, Inc., 51 Franklin Street, Fifth Floor, Boston, MA 02110-1301 USA.
 
 # Default values
 strength=3
-namePlayerA="You"
+namePlayerA="Player"
 namePlayerB="AI"
 color=true
-colorPlayerA=1
-colorPlayerB=4
+colorPlayerA=4
+colorPlayerB=1
 colorHelper=true
 colorFill=true
 ascii=false
@@ -28,24 +37,24 @@ function help {
 	echo "               (Default: $namePlayerA)"
 	echo "    -b NAME    Name of second player - or \"ai\" for computer controlled"
 	echo "               (Default: $namePlayerB)"
-	echo "    -s NUMBER  strength of computer (Default: $strength)"
+	echo "    -s NUMBER  Strength of computer (Default: $strength)"
 	echo "    -w NUMBER  Waiting time for messages in seconds (Default: $sleep)"
 	echo
 	echo "Cache management"
-	echo "    -c FILE    makes cache permanent - load and store calculated moves"
-	echo "    -z         compress cache file (only to be used with -c, requires gzip)"
-	echo "    -t STEPS   exit after STEPS ai turns and print time (for benchmark)"
+	echo "    -c FILE    Makes cache permanent - load and store calculated moves"
+	echo "    -z         Compress cache file (only to be used with -c, requires gzip)"
+	echo "    -t STEPS   Exit after STEPS ai turns and print time (for benchmark)"
 	echo
 	echo "Output control"
-	echo "    -h         this help message"
-	echo "    -i         enable verbose input warning messages"
-	echo "    -p         plain ascii output (instead of cute unicode figures)"
-	echo "    -d         disable colors (only black/white output)"
+	echo "    -h         This help message"
+	echo "    -i         Enable verbose input warning messages"
+	echo "    -p         Plain ascii output (instead of cute unicode figures)"
+	echo "    -d         Disable colors (only black/white output)"
 	echo "    Following options will have no effect while colors are disabled:"
 	echo "    -A NUMBER  Color code of first player (Default: $colorPlayerA)"
 	echo "    -B NUMBER  Color code of second player (Default: $colorPlayerB)"
-	echo "    -n         use normal (instead of color filled) figures"
-	echo "    -m         disable color marking of possible moves"
+	echo "    -n         Use normal (instead of color filled) figures"
+	echo "    -m         Disable color marking of possible moves"
 	echo
 }
 
@@ -121,7 +130,7 @@ while getopts ":a:A:b:B:c:s:t:w:dhimnpz" options; do
 		z )	if which gzip && which zcat ; then
 				cachecompress=true
 			else
-				echo "Missing gzip/zcat for compression"
+				echo "Missing gzip/zcat for compression" >&2
 				exit 1
 			fi
 			;;
@@ -145,15 +154,14 @@ aiPlayerA="Marvin"
 aiPlayerB="R2D2"
 
 # lookup tables
-#TODO: import/export
 declare -A cacheLookup
 declare -A cacheFlag
 declare -A cacheDepth
 
-# associative arrays are fast[er than numeric ones] and way more readable - TODO Src
+# associative arrays are faster than numeric ones and way more readable
 declare -A field
 
-# Initialize setting - first row
+# initialize setting - first row
 declare -a initline=( 4  2  3  6  5  3  2  4 )
 for (( x=0; x<8; x++ )) ; do
 	field[0,$x]=${initline[$x]}
@@ -195,18 +203,7 @@ function warn() {
 	echo -e "\r                                                                     \r\e[41m\e[1m$1\e[0m\n"
 }
 
-# Make number absolute
-#	$1	number
-# WARNING: Maximum 255 (due to bash return range)
-function abs(){
-	if (( $1 > 0 )) ; then
-		return $1;
-	else
-		return $(( $1 * (-1) ))
-	fi
-}
-
-# readable coordinates
+# Readable coordinates
 # Params:
 #	$1	row position
 #	$2	column position
@@ -215,7 +212,7 @@ function coord() {
 	echo -en "\x$((48-$1))$(($2+1))"
 }
 
-# check if ai player
+# Check if ai player
 # Params:
 #	$1	player
 # Return status code 0 if ai player
@@ -233,10 +230,13 @@ function isAI() {
 # Writes name to stdout
 function namePlayer() {
 	if (( $1 < 0 )) ; then
+		$color && echo -en "\e[3${colorPlayerA}m"
 		isAI $1 && echo -n $aiPlayerA || echo -n $namePlayerA
 	else
+		$color && echo -en "\e[3${colorPlayerB}m"
 		isAI $1 && echo -n $aiPlayerB || echo -n $namePlayerB
 	fi
+	$color && echo -en "\e[37m"
 }
 
 # Get name of figure
@@ -270,15 +270,15 @@ function hasKing(){
 	return 1
 }
 
-# Check single movement
+# Check validity of a concrete single movement
 # Params:
 #	$1	origin Y position
 #	$2	origin X position
 #	$3	target Y position
 #	$4	target X position
 #	$5	current player
-# Returns status code 0 if move is valid.
-function canMove() { 
+# Returns status code 0 if move is valid
+function canMove() {
 	local fromY=$1
 	local fromX=$2
 	local toY=$3
@@ -343,21 +343,29 @@ function canMove() {
 		return $(( !( ( ( $fromX - $toX ) * ( $fromX - $toX ) ) <= 1 &&  ( ( $fromY - $toY ) * ( $fromY - $toY ) ) <= 1 ) ))
 	# invalid figure
 	else
-		error "Invalid figure '$from'!"
+		error "Invalid figure '$from'!" >&2
+		exit 1
 	fi
 }
 
 # minimax (game theory) algorithm for evaluate possible movements
-# (the heart of the ai)
+# (the heart of your computer enemy)
 # currently based on negamax with alpha/beta pruning and transposition tables liked described in
 # http://en.wikipedia.org/wiki/Negamax#NegaMax_with_Alpha_Beta_Pruning_and_Transposition_Tables
+# Params:
+#	$1	current search depth
+#	$2	alpha (for pruning)
+#	$3	beta (for pruning)
+#	$4	current moving player
+#	$5	preserves the best move (for ai) if true
+# Returns best value as status code
 function negamax() {
 	local depth=$1
 	local a=$2
 	local b=$3
 	local player=$4
 	local save=$5
-	#Transposition Table
+	# transposition table
 	local aSave=$a
 	local hash="${field[@]}"
 	if ! $save && test "${cacheLookup[$hash]+set}" && (( ${cacheDepth[$hash]} >= $depth )) ; then
@@ -558,7 +566,7 @@ function negamax() {
 	fi
 }
 
-# Make movement
+# Perform a concrete single movement
 # Params:
 # 	$1	current player
 # Globals: 
@@ -641,9 +649,9 @@ function draw() {
 					fi
 				elif $color && $colorHelper && canMove $selectedY $selectedX $y $x $selectedPlayer ; then
 					if $black ; then
-						(( $selectedPlayer > 0 )) && echo -en "\e[10${colorPlayerA}m" || echo -en "\e[10${colorPlayerB}m"
+						(( $selectedPlayer < 0 )) && echo -en "\e[10${colorPlayerA}m" || echo -en "\e[10${colorPlayerB}m"
 					else
-						(( $selectedPlayer > 0 )) && echo -en "\e[4${colorPlayerA}m" || echo -en "\e[4${colorPlayerB}m"
+						(( $selectedPlayer < 0 )) && echo -en "\e[4${colorPlayerA}m" || echo -en "\e[4${colorPlayerB}m"
 					fi
 				fi
 			fi
@@ -651,12 +659,12 @@ function draw() {
 			if ! $ascii && (( $f == 0 )) ; then
 				echo -en " "
 			else
-				#figure colors
+				# figure colors
 				if $color ; then
 					if (( $selectedX == $x && $selectedY == $y )) ; then
-						(( $f > 0 )) && echo -en "\e[3${colorPlayerA}m" || echo -en "\e[3${colorPlayerB}m"
+						(( $f < 0 )) && echo -en "\e[3${colorPlayerA}m" || echo -en "\e[3${colorPlayerB}m"
 					else
-						(( $f > 0 )) && echo -en "\e[9${colorPlayerA}m" || echo -en "\e[9${colorPlayerB}m"
+						(( $f < 0 )) && echo -en "\e[9${colorPlayerA}m" || echo -en "\e[9${colorPlayerB}m"
 					fi
 				fi
 				# unicode figures
@@ -691,7 +699,10 @@ function draw() {
 	echo -e "  \e[0m\n"
 }
 
-# Read row from user
+# Read row from user input
+# Params:
+#	$1	current player
+# Returns row (0-7) as status code
 function inputY() {
 	local i
 	while true; do
@@ -715,7 +726,10 @@ function inputY() {
 	done
 }
 
-# Read column from user
+# Read column from user input
+# Params:
+#	$1	current player
+# Returns column (0-7) as status code
 function inputX() {
 	local i
 	while true; do
@@ -731,10 +745,11 @@ function inputX() {
 	done
 }
 
-# player input
+# Player input
 # (reads a valid user movement)
 # Params
 # 	$1	current (user) player
+# Returns status code 0
 function input() {
 	local player=$1
 	SECONDS=0
@@ -809,8 +824,9 @@ function ai() {
 	fi
 }
 
-# Importing cache
-# (reading serialised cache from stdin)
+# Import transposition tables
+# by reading serialised cache from stdin
+# (no params / return value)
 function importCache() {
 	while IFS=$'\t' read hash lookup depth flag ; do
 		cacheLookup["$hash"]=$lookup
@@ -819,16 +835,18 @@ function importCache() {
 	done
 }
 
-# Exporting cache
+# Export transposition tables
 # Outputs serialised cache (to stdout)
+# (no params / return value)
 function exportCache() {
 	for hash in "${!cacheLookup[@]}" ; do
 		echo -e "$hash\t${cacheLookup[$hash]}\t${cacheDepth[$hash]}\t${cacheFlag[$hash]}"
 	done
 }
 
-# Exit tasks 
-# (exporting cache, measuring running time)
+# Perform necessary tasks for exit
+# like exporting cache and measuring runtime
+# (no params / return value)
 function end() {
 	# permanent cache: export
 	if [[ -n "$cache" ]] ; then
@@ -843,13 +861,13 @@ function end() {
 	# exit message
 	duration=$(( $( date +%s%N ) - $timestamp ))
 	seconds=$(( $duration / 1000000000 )) 
-	echo -e "\r\n\e[2mYou've wasted $seconds,$(( $duration -( $seconds * 1000000000 ))) seconds.\e[0m\n\n\e[1mSee you next time in Chess Bash!\e[0m\n"
+	echo -e "\r\n\e[2mYou've wasted $seconds,$(( $duration -( $seconds * 1000000000 ))) seconds of your lifetime playing with a Bash script.\e[0m\n\n\e[1mSee you next time in Chess Bash!\e[0m\n"
 }
 
 # set exit trap
 trap "end" 0
 
-# welcome message
+# print welcome message
 message=" Welcome to Chess`unicode 10048` Bash"
 if isAI 1 || isAI -1 ; then
 	message="$message - your room heater tool!"
@@ -871,11 +889,14 @@ fi
 # main game loop
 p=1
 while true ; do
+	# reset global variables
 	selectedX=-1
 	selectedY=-1
 	selectedNewX=-1
 	selectedNewY=-1
+	# switch current player
 	p=$(( $p * (-1) ))
+	# check check (or: if the king is lost)
 	if hasKing $p ; then
 		if isAI $p ; then
 			if (( computer-- == 0 )) ; then
