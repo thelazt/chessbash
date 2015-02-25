@@ -24,6 +24,34 @@ computer=-1
 sleep=2
 cache=""
 cachecompress=false
+port=12433
+
+# internal values
+timestamp=$( date +%s%N )
+fifopipeprefix="/tmp/chessbashpipe"
+selectedX=-1
+selectedY=-1
+selectedNewX=-1
+selectedNewY=-1
+remote=0
+remoteip=127.0.0.1
+remotedelay=0.1
+remotekeyword="remote"
+aikeyword="ai"
+aiPlayerA="Marvin"
+aiPlayerB="R2D2"
+
+# Check prerequisits (additional executables)
+# taken from an old script of mine (undertaker-tailor)
+# Params:
+#	$1	name of executable
+function require {
+	type $1 >/dev/null 2>&1 ||
+		{
+			echo "This requires $1 but it is not available on your system. Aborting." >&2
+			exit 1
+		}
+}
 
 # Help message
 # Writes text to stdout
@@ -33,13 +61,18 @@ function help {
 	echo "Usage: $0 [options]"
 	echo
 	echo "Game options"
-	echo "    -a NAME    Name of first player - or \"ai\" for computer controlled"
-	echo "               (Default: $namePlayerA)"
-	echo "    -b NAME    Name of second player - or \"ai\" for computer controlled"
-	echo "               (Default: $namePlayerB)"
+	echo "    -a NAME    Name of first player, \"$aikeyword\" for computer controlled or the"
+	echo "               IP address of remote player (Default: $namePlayerA)"
+	echo "    -b NAME    Name of second player, \"$aikeyword\" for computer controlled or"
+	echo "               \"$remotekeyword\" for another player (Default: $namePlayerB)"
 	echo "    -s NUMBER  Strength of computer (Default: $strength)"
 	echo "    -w NUMBER  Waiting time for messages in seconds (Default: $sleep)"
 	echo
+	echo "Network settings for remote gaming"
+	echo "    -P NUMBER  Set port for network connection (Default: $port)"
+	echo "Attention: On a network game the person controlling the first player / A"
+	echo "(using \"-b $remotekeyword\" as parameter) must start the game first!"
+	echo 
 	echo "Cache management"
 	echo "    -c FILE    Makes cache permanent - load and store calculated moves"
 	echo "    -z         Compress cache file (only to be used with -c, requires gzip)"
@@ -59,11 +92,15 @@ function help {
 }
 
 # Parse command line arguments
-while getopts ":a:A:b:B:c:s:t:w:dhimnpz" options; do
+while getopts ":a:A:b:B:c:P:s:t:w:dhimnpz" options; do
 	case $options in
 		a )	if [[ -z "$OPTARG" ]] ;then
 				echo "No valid name for first player specified!" >&2
 				exit 1
+			# IPv4 && IPv6 validation, source: http://stackoverflow.com/a/9221063
+			elif [[ "$OPTARG" =~ ^(((25[0-5]|2[0-4][0-9]|[01]?[0-9][0-9]?)\.(25[0-5]|2[0-4][0-9]|[01]?[0-9][0-9]?)\.(25[0-5]|2[0-4][0-9]|[01]?[0-9][0-9]?)\.(25[0-5]|2[0-4][0-9]|[01]?[0-9][0-9]?))|((([0-9A-Fa-f]{1,4}:){7}([0-9A-Fa-f]{1,4}|:))|(([0-9A-Fa-f]{1,4}:){6}(:[0-9A-Fa-f]{1,4}|((25[0-5]|2[0-4]\d|1\d\d|[1-9]?\d)(\.(25[0-5]|2[0-4]\d|1\d\d|[1-9]?\d)){3})|:))|(([0-9A-Fa-f]{1,4}:){5}(((:[0-9A-Fa-f]{1,4}){1,2})|:((25[0-5]|2[0-4]\d|1\d\d|[1-9]?\d)(\.(25[0-5]|2[0-4]\d|1\d\d|[1-9]?\d)){3})|:))|(([0-9A-Fa-f]{1,4}:){4}(((:[0-9A-Fa-f]{1,4}){1,3})|((:[0-9A-Fa-f]{1,4})?:((25[0-5]|2[0-4]\d|1\d\d|[1-9]?\d)(\.(25[0-5]|2[0-4]\d|1\d\d|[1-9]?\d)){3}))|:))|(([0-9A-Fa-f]{1,4}:){3}(((:[0-9A-Fa-f]{1,4}){1,4})|((:[0-9A-Fa-f]{1,4}){0,2}:((25[0-5]|2[0-4]\d|1\d\d|[1-9]?\d)(\.(25[0-5]|2[0-4]\d|1\d\d|[1-9]?\d)){3}))|:))|(([0-9A-Fa-f]{1,4}:){2}(((:[0-9A-Fa-f]{1,4}){1,5})|((:[0-9A-Fa-f]{1,4}){0,3}:((25[0-5]|2[0-4]\d|1\d\d|[1-9]?\d)(\.(25[0-5]|2[0-4]\d|1\d\d|[1-9]?\d)){3}))|:))|(([0-9A-Fa-f]{1,4}:){1}(((:[0-9A-Fa-f]{1,4}){1,6})|((:[0-9A-Fa-f]{1,4}){0,4}:((25[0-5]|2[0-4]\d|1\d\d|[1-9]?\d)(\.(25[0-5]|2[0-4]\d|1\d\d|[1-9]?\d)){3}))|:))|(:(((:[0-9A-Fa-f]{1,4}){1,7})|((:[0-9A-Fa-f]{1,4}){0,5}:((25[0-5]|2[0-4]\d|1\d\d|[1-9]?\d)(\.(25[0-5]|2[0-4]\d|1\d\d|[1-9]?\d)){3}))|:))))$ ]] ; then
+				remote=-1
+				remoteip="$OPTARG"
 			else
 				namePlayerA="$OPTARG"
 			fi
@@ -78,6 +115,8 @@ while getopts ":a:A:b:B:c:s:t:w:dhimnpz" options; do
 		b )	if [[ -z "$OPTARG" ]] ;then
 				echo "No valid name for second player specified!" >&2
 				exit 1
+			elif [[ "${OPTARG,,}" == "$remotekeyword" ]] ; then
+				remote=1
 			else
 				namePlayerB="$OPTARG"
 			fi
@@ -93,6 +132,13 @@ while getopts ":a:A:b:B:c:s:t:w:dhimnpz" options; do
 				strength=$OPTARG
 			else
 				echo "'$OPTARG' is not a valid strength!" >&2
+				exit 1
+			fi
+			;;
+		P )	if [[ "$OPTARG" =~ ^[0-9]+$ ]] && (( "$OPTARG" < 65536 && "$OPTARG" > 1023 )) ;then
+				port=$OPTARG
+			else
+				echo "'$OPTARG' is not a valid gaming port!" >&2
 				exit 1
 			fi
 			;;
@@ -127,12 +173,9 @@ while getopts ":a:A:b:B:c:s:t:w:dhimnpz" options; do
 			;;
 		i )	warnings=true
 			;;
-		z )	if which gzip && which zcat ; then
-				cachecompress=true
-			else
-				echo "Missing gzip/zcat for compression" >&2
-				exit 1
-			fi
+		z )	require gzip
+			require zcat
+			cachecompress=true
 			;;
 		h )	help
 			exit 0
@@ -142,16 +185,6 @@ while getopts ":a:A:b:B:c:s:t:w:dhimnpz" options; do
 			;;
 	esac
 done
-
-# internal values
-timestamp=$( date +%s%N )
-selectedX=-1
-selectedY=-1
-selectedNewX=-1
-selectedNewY=-1
-aikeyword="ai"
-aiPlayerA="Marvin"
-aiPlayerB="R2D2"
 
 # lookup tables
 declare -A cacheLookup
@@ -191,7 +224,7 @@ declare -a figValues=( 0 1 5 5 6 17 42 )
 #	$1	message
 # (no return value, exit game)
 function error() {
-	echo "\e[41m\e[1m $1 \e[0m\n\e[3m(Script exit)\e[0m";
+	echo -e "\e[41m\e[1m $1 \e[0m\n\e[3m(Script exit)\e[0m";
 	exit 1
 }
 
@@ -824,6 +857,42 @@ function ai() {
 	fi
 }
 
+function receive() {
+	local player=$remote
+	draw >&3
+	message="(Waiting for `namePlayer $player`s turn)"
+	echo -e "Network player \e[1m`namePlayer $player`\e[0m is thinking... (or sleeping?)" >&3
+	read selectedY < $fifopipe
+	read selectedX < $fifopipe
+	draw >&3
+	local figName=$(nameFigure ${field[$selectedY,$selectedX]} )
+	echo -e "\e[1m$( namePlayer $player )\e[0m moves the \e[3m$figName\e[0m at $(coord $selectedY $selectedX)..." >&3
+	read selectedNewY < $fifopipe
+	read selectedNewX < $fifopipe
+	if move $player ; then
+		draw >&3
+		echo -e "\e[1m$( namePlayer $player )\e[0m moves the \e[3m$figName\e[0m at $(coord $selectedY $selectedX) to $(coord $selectedNewY $selectedNewX)" >&3
+		sleep $sleep
+		message="$( namePlayer $player ) moved the $figName from $(coord $selectedY $selectedX) to $(coord $selectedNewY $selectedNewX) (took him $SECONDS seconds)."
+	else 
+		error "Received invalid move from network - that should not hapen!" >&3
+	fi
+}
+
+function send() {
+	local player=$1
+	local y=$2
+	local x=$3
+	if (( remote == $player * (-1) )) ; then
+		sleep $remotedelay
+		echo $y
+		sleep $remotedelay
+		echo $x
+		sleep $remotedelay
+	fi
+}
+
+
 # Import transposition tables
 # by reading serialised cache from stdin
 # (no params / return value)
@@ -848,6 +917,10 @@ function exportCache() {
 # like exporting cache and measuring runtime
 # (no params / return value)
 function end() {
+	# remove pipe
+	if [[ -n "$fifopipe" && -p "$fifopipe" ]] ; then
+		rm "$fifopipe"
+	fi
 	# permanent cache: export
 	if [[ -n "$cache" ]] ; then
 		echo -en "\r\n\e[2mExporting cache..."
@@ -866,6 +939,29 @@ function end() {
 
 # set exit trap
 trap "end" 0
+
+# setting up requirements for network
+piper="cat"
+fifopipe="/dev/fd/1"
+initialized=true
+if (( $remote != 0 )) ; then
+	require nc
+	require mknod
+	initialized=false
+	if (( $remote == 1 )) ; then
+		fifopipe="$fifopipeprefix.server"
+		piper="nc -l $port"
+	else
+		fifopipe="$fifopipeprefix.client"
+		piper="nc $remoteip $port"
+	fi
+	if [ ! -e "$fifopipe" ] ; then
+		mkfifo "$fifopipe"
+	fi
+	if [ ! -p "$fifopipe" ] ; then
+		echo "Could not create FIFO pipe '$fifopipe'!" >&2
+	fi
+fi
 
 # print welcome message
 message=" Welcome to Chess`unicode 10048` Bash"
@@ -887,30 +983,54 @@ if [[ -n "$cache" && -f "$cache" ]] ; then
 fi
 
 # main game loop
-p=1
-while true ; do
-	# reset global variables
-	selectedX=-1
-	selectedY=-1
-	selectedNewX=-1
-	selectedNewY=-1
-	# switch current player
-	p=$(( $p * (-1) ))
-	# check check (or: if the king is lost)
-	if hasKing $p ; then
-		if isAI $p ; then
-			if (( computer-- == 0 )) ; then
-				echo "Stopping - performed all ai steps"
-				exit 0
+{
+	p=1
+	while true ; do
+		# initialize remote connection first
+		if ! $initialized ; then
+			warn "Waiting for the other network player to be ready..." >&3
+			# exchange names
+			if (( $remote == -1 )) ; then
+				read namePlayerA < $fifopipe
+				echo "$namePlayerB"
+				echo "connected with first player." >&3
+			elif (( $remote == 1 )) ; then
+				echo "$namePlayerA"
+				read namePlayerB < $fifopipe
+				echo "connected with second player." >&3
 			fi
-			ai $p
-		else
-			input $p
+			# set initialized
+			initialized=true
 		fi
-	else
-		message="Game Over!"
-		draw
-		echo -e "\e[1m`namePlayer $(( $p * (-1) ))` wins the game!\e[1m\n"
-		exit 0
-	fi
-done
+		# reset global variables
+		selectedY=-1
+		selectedX=-1
+		selectedNewY=-1
+		selectedNewX=-1
+		# switch current player
+		p=$(( $p * (-1) ))
+		# check check (or: if the king is lost)
+		if hasKing $p ; then
+			if (( remote == p )) ; then
+				receive
+			elif isAI $p ; then
+				if (( computer-- == 0 )) ; then
+					echo "Stopping - performed all ai steps" >&3
+					exit 0
+				fi
+				ai $p >&3
+			else
+				input $p >&3
+			fi
+			send $p $selectedY $selectedX
+			send $p $selectedNewY $selectedNewX
+sleep 5s
+		else
+			message="Game Over!"
+			draw >&3
+			echo -e "\e[1m`namePlayer $(( $p * (-1) ))` wins the game!\e[1m\n" >&3
+			exit 0
+		fi
+	done | $piper > "$fifopipe"
+	error "Network failure"
+} 3>&1
