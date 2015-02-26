@@ -90,6 +90,7 @@ function help {
 	echo "    -m         Disable color marking of possible moves"
 	echo
 }
+#todo: LABELS -l  cachefix
 
 # Parse command line arguments
 while getopts ":a:A:b:B:c:P:s:t:w:dhimnpz" options; do
@@ -224,7 +225,7 @@ declare -a figValues=( 0 1 5 5 6 17 42 )
 #	$1	message
 # (no return value, exit game)
 function error() {
-	echo -e "\e[41m\e[1m $1 \e[0m\n\e[3m(Script exit)\e[0m";
+	echo -e "\e[41m\e[1m $1 \e[0m\n\e[3m(Script exit)\e[0m" >&2
 	exit 1
 }
 
@@ -376,7 +377,7 @@ function canMove() {
 		return $(( !( ( ( $fromX - $toX ) * ( $fromX - $toX ) ) <= 1 &&  ( ( $fromY - $toY ) * ( $fromY - $toY ) ) <= 1 ) ))
 	# invalid figure
 	else
-		error "Invalid figure '$from'!" >&2
+		error "Invalid figure '$from'!"
 		exit 1
 	fi
 }
@@ -789,43 +790,46 @@ function input() {
 	while true ; do
 		selectedY=-1
 		selectedX=-1
-		draw
+		draw >&3
 		message="(Waiting for `namePlayer $player`s turn)"
 		local imsg="$(echo -e "\e[1m`namePlayer $player`\e[0m: Move figure")"
 		while true ; do
-			inputY "$imsg"
+			inputY "$imsg" >&3
 			selectedY=$?
-			inputX "$imsg `ascii $(( 48 - $selectedY ))`"
+			inputX "$imsg `ascii $(( 48 - $selectedY ))`" >&3
 			selectedX=$?
 			if (( ${field["$selectedY,$selectedX"]} == 0 )) ; then
-				warn "You cannot choose an empty field!"
+				warn "You cannot choose an empty field!" >&3
 			elif (( ${field["$selectedY,$selectedX"]} * $player  < 0 )) ; then
-				warn "You cannot choose your enemies figures!"
+				warn "You cannot choose your enemies figures!" >&3
 			else
 				break
 			fi
 		done
-		draw
+		draw >&3
+		send $player $selectedY $selectedX
 		local figName=$(nameFigure ${field[$selectedY,$selectedX]} )
 		local imsg="$imsg `coord $selectedY $selectedX` ($figName) to"
 		while true ; do
-			inputY "$imsg"
+			inputY "$imsg" >&3
 			selectedNewY=$?
-			inputX "$imsg `ascii $(( 48 - $selectedNewY ))`"
+			inputX "$imsg `ascii $(( 48 - $selectedNewY ))`" >&3
 			selectedNewX=$?
 			if (( $selectedNewY == $selectedY && $selectedNewX == $selectedX )) ; then
-				warn "You didn't move..."
+				warn "You didn't move..." >&3
 				sleep $sleep
 				break
 			elif (( ${field[$selectedNewY,$selectedNewX]} * $player > 0 )) ; then
-				warn "You cannot kill your own figures!"
+				warn "You cannot kill your own figures!" >&3
 			elif move $player ; then
 				message="`namePlayer $player` moved the $figName from `coord $selectedY $selectedX` to `coord $selectedNewY $selectedNewX` (took him $SECONDS seconds)."
+				send $player $selectedNewY $selectedNewX
 				return 0
 			else
-				warn "This move is not allowed!"
+				warn "This move is not allowed!" >&3
 			fi
 		done
+		send $player $selectedNewY $selectedNewX
 	done
 }
 
@@ -838,18 +842,20 @@ function ai() {
 	local player=$1
 	local val
 	SECONDS=0
-	draw
+	draw >&3
 	message="(Waiting for `namePlayer $player`s turn)"
-	echo -e "Computer player \e[1m`namePlayer $player`\e[0m is thinking..."
+	echo -e "Computer player \e[1m`namePlayer $player`\e[0m is thinking..." >&3
 	negamax $strength 0 255 $player
 	val=$?
 	local figName=$(nameFigure ${field[$selectedY,$selectedX]} )
-	draw
-	echo -e "\e[1m$( namePlayer $player )\e[0m moves the \e[3m$figName\e[0m at $(coord $selectedY $selectedX)..."
+	draw >&3
+	echo -e "\e[1m$( namePlayer $player )\e[0m moves the \e[3m$figName\e[0m at $(coord $selectedY $selectedX)..." >&3
+	send $player $selectedY $selectedX
 	sleep $sleep
 	if move $player ; then
-		draw
-		echo -e "\e[1m$( namePlayer $player )\e[0m moves the \e[3m$figName\e[0m at $(coord $selectedY $selectedX) to $(coord $selectedNewY $selectedNewX)"
+		draw >&3
+		echo -e "\e[1m$( namePlayer $player )\e[0m moves the \e[3m$figName\e[0m at $(coord $selectedY $selectedX) to $(coord $selectedNewY $selectedNewX)" >&3
+		send $player $selectedNewY $selectedNewX
 		sleep $sleep
 		message="$( namePlayer $player ) moved the $figName from $(coord $selectedY $selectedX) to $(coord $selectedNewY $selectedNewX) (took him $SECONDS seconds)."
 	else 
@@ -857,41 +863,102 @@ function ai() {
 	fi
 }
 
+# Read row from remote
+# Returns row (0-7) as status code
+function receiveY() {
+	local i
+	while true; do
+		read -n 1 i
+		case $i in
+			[hH] ) return 0 ;;
+			[gG] ) return 1 ;;
+			[fF] ) return 2 ;;
+			[eE] ) return 3 ;;
+			[dD] ) return 4 ;;
+			[cC] ) return 5 ;;
+			[bB] ) return 6 ;;
+			[aA] ) return 7 ;;
+			* )
+				if $warnings ; then
+					warn "Invalid input '$i' for row from network (character between 'A' and 'H' required)!"
+				fi
+		esac
+	done
+}
+
+# Read column from remote
+# Returns column (0-7) as status code
+function receiveX() {
+	local i
+	while true; do
+		read -n 1 i
+		case $i in
+			[1-8] ) return $(( $i - 1 )) ;;
+			* )
+				if $warnings ; then
+					warn "Invalid input '$i' for column from network (character between '1' and '8' required)!"
+				fi
+		esac
+	done
+}
+
+# receive movement from connected player
+# (no params/return value)
 function receive() {
 	local player=$remote
 	draw >&3
 	message="(Waiting for `namePlayer $player`s turn)"
 	echo -e "Network player \e[1m`namePlayer $player`\e[0m is thinking... (or sleeping?)" >&3
-	read selectedY < $fifopipe
-	read selectedX < $fifopipe
-	draw >&3
-	local figName=$(nameFigure ${field[$selectedY,$selectedX]} )
-	echo -e "\e[1m$( namePlayer $player )\e[0m moves the \e[3m$figName\e[0m at $(coord $selectedY $selectedX)..." >&3
-	read selectedNewY < $fifopipe
-	read selectedNewX < $fifopipe
+	while true ; do
+		receiveY
+		selectedY=$?
+		receiveX
+		selectedX=$?
+		draw >&3
+		local figName=$(nameFigure ${field[$selectedY,$selectedX]} )
+		echo -e "\e[1m$( namePlayer $player )\e[0m moves the \e[3m$figName\e[0m at $(coord $selectedY $selectedX)..." >&3
+		receiveY
+		selectedNewY=$?
+		receiveX
+		selectedNewX=$?
+		if (( $selectedNewY == $selectedY && $selectedNewX == $selectedX )) ; then
+			selectedY=-1
+			selectedX=-1
+			selectedNewY=-1
+			selectedNewX=-1
+			draw >&3
+			echo -e "\e[1m$( namePlayer $player )\e[0m revoked his move... okay, that'll be time consuming" >&3
+		else
+			break
+		fi
+	done
 	if move $player ; then
 		draw >&3
 		echo -e "\e[1m$( namePlayer $player )\e[0m moves the \e[3m$figName\e[0m at $(coord $selectedY $selectedX) to $(coord $selectedNewY $selectedNewX)" >&3
 		sleep $sleep
 		message="$( namePlayer $player ) moved the $figName from $(coord $selectedY $selectedX) to $(coord $selectedNewY $selectedNewX) (took him $SECONDS seconds)."
 	else 
-		error "Received invalid move from network - that should not hapen!" >&3
+		error "Received invalid move from network - that should not hapen!"
 	fi
 }
 
+# Write coordinates to network
+# Params:
+#	$1	player
+#	$2	row
+#	$3	column
+# (no return value/exit code)
 function send() {
 	local player=$1
 	local y=$2
 	local x=$3
 	if (( remote == $player * (-1) )) ; then
 		sleep $remotedelay
-		echo $y
-		sleep $remotedelay
-		echo $x
+		coord $y $x
+		echo
 		sleep $remotedelay
 	fi
 }
-
 
 # Import transposition tables
 # by reading serialised cache from stdin
@@ -913,23 +980,28 @@ function exportCache() {
 	done
 }
 
-# Perform necessary tasks for exit
-# like exporting cache and measuring runtime
+# Trap function for exporting cache
 # (no params / return value)
-function end() {
-	# remove pipe
-	if [[ -n "$fifopipe" && -p "$fifopipe" ]] ; then
-		rm "$fifopipe"
-	fi
+function exitCache() {
 	# permanent cache: export
 	if [[ -n "$cache" ]] ; then
-		echo -en "\r\n\e[2mExporting cache..."
+		echo -en "\r\n\e[2mExporting cache..." >&3
 		if $cachecompress ; then
 			exportCache | gzip > "$cache"
 		else
 			exportCache > "$cache"
 		fi
-		echo -e " done!\e[0m"
+		echo -e " done!\e[0m" >&3
+	fi
+}
+
+# Perform necessary tasks for exit
+# like deleting files and measuring runtime
+# (no params / return value)
+function end() {
+	# remove pipe
+	if [[ -n "$fifopipe" && -p "$fifopipe" ]] ; then
+		rm "$fifopipe"
 	fi
 	# exit message
 	duration=$(( $( date +%s%N ) - $timestamp ))
@@ -937,17 +1009,17 @@ function end() {
 	echo -e "\r\n\e[2mYou've wasted $seconds,$(( $duration -( $seconds * 1000000000 ))) seconds of your lifetime playing with a Bash script.\e[0m\n\n\e[1mSee you next time in Chess Bash!\e[0m\n"
 }
 
-# set exit trap
+# Exit trap
 trap "end" 0
 
 # setting up requirements for network
 piper="cat"
 fifopipe="/dev/fd/1"
-initialized=true
+initializedGameLoop=true
 if (( $remote != 0 )) ; then
 	require nc
 	require mknod
-	initialized=false
+	initializedGameLoop=false
 	if (( $remote == 1 )) ; then
 		fifopipe="$fifopipeprefix.server"
 		piper="nc -l $port"
@@ -986,8 +1058,10 @@ fi
 {
 	p=1
 	while true ; do
-		# initialize remote connection first
-		if ! $initialized ; then
+		# initialize remote connection on first run
+		if ! $initializedGameLoop ; then
+			# set cache export trap
+			trap "exitCache" 0
 			warn "Waiting for the other network player to be ready..." >&3
 			# exchange names
 			if (( $remote == -1 )) ; then
@@ -999,8 +1073,8 @@ fi
 				read namePlayerB < $fifopipe
 				echo "connected with second player." >&3
 			fi
-			# set initialized
-			initialized=true
+			# set this loop initialized
+			initializedGameLoop=true
 		fi
 		# reset global variables
 		selectedY=-1
@@ -1012,19 +1086,16 @@ fi
 		# check check (or: if the king is lost)
 		if hasKing $p ; then
 			if (( remote == p )) ; then
-				receive
+				receive < $fifopipe
 			elif isAI $p ; then
 				if (( computer-- == 0 )) ; then
 					echo "Stopping - performed all ai steps" >&3
 					exit 0
 				fi
-				ai $p >&3
+				ai $p
 			else
-				input $p >&3
+				input $p
 			fi
-			send $p $selectedY $selectedX
-			send $p $selectedNewY $selectedNewX
-sleep 5s
 		else
 			message="Game Over!"
 			draw >&3
@@ -1032,5 +1103,13 @@ sleep 5s
 			exit 0
 		fi
 	done | $piper > "$fifopipe"
-	error "Network failure"
+
+	# check exit code
+	netcatExit=$?
+	gameLoopExit=${PIPESTATUS[0]}
+	if (( $netcatExit != 0 )) ; then
+		error "Network failure!"
+	elif (( $gameLoopExit != 0 )) ; then
+		error "The game ended unexpected!"
+	fi
 } 3>&1
