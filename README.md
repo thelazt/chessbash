@@ -2,14 +2,16 @@ Chess Bash
 ==========
 A simple chess game written in a bash script.
 
+
 Features
 --------
   * Pure Bash script
   * Chess engine / computer enemy (and even computer versus computer)
   * Unicode support
   * Coloured output
+  * Network support (aka Multiplayer)
   * Permanent transposition tables (import/export)
-  
+
 *Hey, this is just a fast scrawled script, what do you expect?*
 
 
@@ -25,10 +27,8 @@ This will start a player versus computer game.
 Additional modes and settings are available; to list them just take a look at 
 
     ./chessba.sh -h
-    
-**To play**, simply input the coordinates (first the row denoted by the letters [A]-[H], then the column according to the numbers [1]-[8]) from the figure you want to move, afterwards the target coordinates (in the same format).
 
-**Note:** Invalid figure selections/moves are discarded with an error message. If you've chosen the wrong figure at the input, just re-enter the same coordinates and now you can select another figure.
+**Controls:** Simply input the coordinates (first the row denoted by the letters [A]-[H], then the column according to the numbers [1]-[8]) from the figure you want to move, afterwards the target coordinates (in the same format).
 
 
 Rules
@@ -39,6 +39,14 @@ Besides the basic movement of figures only the pawn promotion is considered - wi
 At the moment no special regard is taken to check/checkmate - the game ends, when one loses his king.
 
 These limitations are at the moment mainly based on the lack of an easy incorporation with the input, but might be solved in future releases.
+
+
+Tips and Tricks
+---------------
+  * Invalid figure selections/moves are discarded with an warning message. If you've chosen the wrong figure at the input, just re-enter the same coordinates and now you can select another figure.
+  * For a better gaming experience (= bigger and nicer figures), use [Ubunto Mono](http://font.ubuntu.com/#charset-mono-regular) or [Droid Sans Mono](http://www.droidfonts.com/info/droid-sans-mono-fonts/).
+  * If you start a multiplayer game, the first player (with the script parameter `-b "remote"`) should run the game script first, because he acts as server.
+
 
 But why Bash???
 ---------------
@@ -62,6 +70,7 @@ Putting all together, we have both really good engines easily defeating grandmas
 Yes, writing chess in inappropriate languages - in my case **Bash**, because when I began writing the script I was on a ferry without Internet access having only a plain Ubuntu on the notebook.
 And if you are crazy enough to look at the code: The main part was written there travelling on a rainy day on the sea (I had a few hours), therefore don't expect a clean organised script!
 
+
 Internals
 ---------
 **Algorithm:** 
@@ -70,6 +79,7 @@ While I first started with a classic [Minimax](http://en.wikipedia.org/wiki/Mini
 **Functions** are mostly avoided (in the engine) for performance concerns. But in the case they are still required, I use global variables and the exit status code for interaction - this might explain several design decisions.
 
 Of course, **builtin** solutions are preferred where available (as every script should do).
+
 
 Contribute
 ----------

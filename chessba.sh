@@ -24,6 +24,7 @@ computer=-1
 sleep=2
 cache=""
 cachecompress=false
+unicodelabels=true
 port=12433
 
 # internal values
@@ -81,7 +82,9 @@ function help {
 	echo "Output control"
 	echo "    -h         This help message"
 	echo "    -i         Enable verbose input warning messages"
+	echo "    -l         Board labels in ASCII (instead of Unicode)"
 	echo "    -p         Plain ascii output (instead of cute unicode figures)"
+	echo "               This implies ASCII board labels (\"-l\")"
 	echo "    -d         Disable colors (only black/white output)"
 	echo "    Following options will have no effect while colors are disabled:"
 	echo "    -A NUMBER  Color code of first player (Default: $colorPlayerA)"
@@ -90,10 +93,9 @@ function help {
 	echo "    -m         Disable color marking of possible moves"
 	echo
 }
-#todo: LABELS -l  cachefix
 
 # Parse command line arguments
-while getopts ":a:A:b:B:c:P:s:t:w:dhimnpz" options; do
+while getopts ":a:A:b:B:c:P:s:t:w:dhilmnpz" options; do
 	case $options in
 		a )	if [[ -z "$OPTARG" ]] ;then
 				echo "No valid name for first player specified!" >&2
@@ -166,11 +168,14 @@ while getopts ":a:A:b:B:c:P:s:t:w:dhimnpz" options; do
 			;;
 		d )	color=false
 			;;
+		l )	unicodelabels=false
+			;;
 		n )	colorFill=false
 			;;
 		m )	colorHelper=false
 			;;
 		p )	ascii=true
+			unicodelabels=false
 			;;
 		i )	warnings=true
 			;;
@@ -401,7 +406,7 @@ function negamax() {
 	local save=$5
 	# transposition table
 	local aSave=$a
-	local hash="${field[@]}"
+	local hash="$player ${field[@]}"
 	if ! $save && test "${cacheLookup[$hash]+set}" && (( ${cacheDepth[$hash]} >= $depth )) ; then
 		local value=${cacheLookup[$hash]}
 		local flag=${cacheFlag[$hash]}
@@ -651,10 +656,10 @@ function draw() {
 			echo -en "\e[2m"
 		fi
 		# line number (alpha numeric)
-		if $ascii ; then
-			echo -en "  \x$((48 - $y))"
-		else
+		if $unicodelabels ; then
 			echo -en "  $(unicode $((9405 - $y))) "
+		else
+			echo -en "  \x$((48 - $y))"
 		fi
 		# clear format
 		echo -en "\e[0m  "
@@ -723,10 +728,13 @@ function draw() {
 	echo -en "\n     "
 	for (( x=0; x<8; x++ )) ; do
 		(( $selectedX == $x )) && echo -en "\e[2m" || echo -en "\e[0m"
-		if $ascii ; then
-			echo -en " \x$((31 + $x)) "
-		else
+		if $unicodelabels ; then
 			echo -en " $(unicode $(( 10112 + $x )) )"
+		else
+			if $ascii ; then
+				echo -n " "
+			fi
+			echo -en "\x$((31 + $x)) "
 		fi
 	done
 	# clear format
@@ -906,6 +914,7 @@ function receiveX() {
 # (no params/return value)
 function receive() {
 	local player=$remote
+	SECONDS=0
 	draw >&3
 	message="(Waiting for `namePlayer $player`s turn)"
 	echo -e "Network player \e[1m`namePlayer $player`\e[0m is thinking... (or sleeping?)" >&3
