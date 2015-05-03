@@ -48,7 +48,7 @@ A=-1
 B=1
 
 # Print version information
-function version() { 
+function version() {
 	echo "ChessBash 0.3"
 }
 
@@ -77,7 +77,7 @@ function require() {
 # Params:
 #	$1	String with number
 # Return 0 if valid, 1 otherwise
-function validNumber(){
+function validNumber() {
 	[[ "$1" =~ ^[0-9]+$ ]] && return 0 || return 1
 }
 
@@ -86,7 +86,7 @@ function validNumber(){
 # Params:
 #	$1	String with port number
 # Return 0 if valid, 1 otherwise
-function validPort(){
+function validPort() {
 	validNumber "$1" && (( "$1" < 65536 && "$1" > 1023 )) && return 0 || return 1
 }
 
@@ -95,7 +95,7 @@ function validPort(){
 # Params:
 #	$1	IP address to validate
 # Return 0 if valid, 1 otherwise
-function validIP(){
+function validIP() {
 	[[ "$1" =~ ^(((25[0-5]|2[0-4][0-9]|[01]?[0-9][0-9]?)\.(25[0-5]|2[0-4][0-9]|[01]?[0-9][0-9]?)\.(25[0-5]|2[0-4][0-9]|[01]?[0-9][0-9]?)\.(25[0-5]|2[0-4][0-9]|[01]?[0-9][0-9]?))|((([0-9A-Fa-f]{1,4}:){7}([0-9A-Fa-f]{1,4}|:))|(([0-9A-Fa-f]{1,4}:){6}(:[0-9A-Fa-f]{1,4}|((25[0-5]|2[0-4]\d|1\d\d|[1-9]?\d)(\.(25[0-5]|2[0-4]\d|1\d\d|[1-9]?\d)){3})|:))|(([0-9A-Fa-f]{1,4}:){5}(((:[0-9A-Fa-f]{1,4}){1,2})|:((25[0-5]|2[0-4]\d|1\d\d|[1-9]?\d)(\.(25[0-5]|2[0-4]\d|1\d\d|[1-9]?\d)){3})|:))|(([0-9A-Fa-f]{1,4}:){4}(((:[0-9A-Fa-f]{1,4}){1,3})|((:[0-9A-Fa-f]{1,4})?:((25[0-5]|2[0-4]\d|1\d\d|[1-9]?\d)(\.(25[0-5]|2[0-4]\d|1\d\d|[1-9]?\d)){3}))|:))|(([0-9A-Fa-f]{1,4}:){3}(((:[0-9A-Fa-f]{1,4}){1,4})|((:[0-9A-Fa-f]{1,4}){0,2}:((25[0-5]|2[0-4]\d|1\d\d|[1-9]?\d)(\.(25[0-5]|2[0-4]\d|1\d\d|[1-9]?\d)){3}))|:))|(([0-9A-Fa-f]{1,4}:){2}(((:[0-9A-Fa-f]{1,4}){1,5})|((:[0-9A-Fa-f]{1,4}){0,3}:((25[0-5]|2[0-4]\d|1\d\d|[1-9]?\d)(\.(25[0-5]|2[0-4]\d|1\d\d|[1-9]?\d)){3}))|:))|(([0-9A-Fa-f]{1,4}:){1}(((:[0-9A-Fa-f]{1,4}){1,6})|((:[0-9A-Fa-f]{1,4}){0,4}:((25[0-5]|2[0-4]\d|1\d\d|[1-9]?\d)(\.(25[0-5]|2[0-4]\d|1\d\d|[1-9]?\d)){3}))|:))|(:(((:[0-9A-Fa-f]{1,4}){1,7})|((:[0-9A-Fa-f]{1,4}){0,5}:((25[0-5]|2[0-4]\d|1\d\d|[1-9]?\d)(\.(25[0-5]|2[0-4]\d|1\d\d|[1-9]?\d)){3}))|:))))$ ]] && return 0 || return 1
 }
 
@@ -107,7 +107,7 @@ declare -a colors=( "black" "red" "green" "yellow" "blue" "magenta" "cyan" "whit
 # Params:
 #	$1	Color string
 # Return Color code or 0 if not a valid
-function getColor(){
+function getColor() {
 	local c
 	for (( c=1; c<7; c++ )) ; do
 		local v=${colors[$c]:0:1}
@@ -134,6 +134,7 @@ function isAI() {
 # Help message
 # Writes text to stdout
 function help {
+	echo
 	echo -e "\e[1mChess Bash\e[0m - a small chess game written in Bash"
 	echo
 	echo -e "\e[4mUsage:\e[0m $0 [options]"
@@ -151,8 +152,8 @@ function help {
 	echo
 	echo -e "\e[4mNetwork settings for remote gaming\e[0m"
 	echo -e "    -P \e[2mNUMBER\e[0m  Set port for network connection (Default: \e[2m$port\e[0m)"
-	echo -e "\e[1mAttention:\e[0m On a network game the person controlling the first player / A"
-	echo -e "(using \"\e[2m-b $remotekeyword\e[0m\" as parameter) must start the game first!"
+	echo -e "\e[1;33mAttention:\e[0;33m On a network game the person controlling the first player / A"
+	echo -e "(using \"\e[2;33m-b $remotekeyword\e[0;33m\" as parameter) must start the game first!\e[0m"
 	echo 
 	echo -e "\e[4mCache management\e[0m"
 	echo -e "    -c \e[2mFILE\e[0m    Makes cache permanent - load and store calculated moves"
@@ -174,6 +175,10 @@ function help {
 	echo -e "    -B \e[2mNUMBER\e[0m  Color code of second player (Default: \e[2m$colorPlayerB\e[0m)"
 	echo "    -n         Use normal (instead of color filled) figures"
 	echo "    -m         Disable color marking of possible moves"
+	echo
+	echo -e "\e[2m(Default values/options should suit most systems - only if you encounter a"
+	echo -e "problem you should have a further investigation of these script parameters."
+	echo -e "Or just switch to a real chess game with great graphics and ai! ;)\e[0m"
 	echo
 }
 
@@ -316,7 +321,7 @@ if $guiconfig ; then
 	fi
 
 	# Output the type of the first player in a readable string
-	function typeOfPlayerA(){
+	function typeOfPlayerA() {
 		if [[ "$remote" -eq "-1" ]] ; then
 			echo "Connect to $remoteip (Port $port)"
 			return 2
@@ -330,7 +335,7 @@ if $guiconfig ; then
 	}
 
 	# Output the type of the second player in a readable string
-	function typeOfPlayerB(){
+	function typeOfPlayerB() {
 		if [[ "$remote" -eq "1" ]] ; then
 			echo "Host server at port $port"
 			return 2
@@ -351,7 +356,7 @@ if $guiconfig ; then
 		if [[ -n "$dlgtool" ]] ; then
 			$dlgtool --backtitle "ChessBash" "$@" 3>&1 1>&2 2>&3 | sed -e "s/|/\n/g" | sort -u
 			return ${PIPESTATUS[0]}
-		else 
+		else
 			return 255
 		fi
 	}
@@ -359,14 +364,14 @@ if $guiconfig ; then
 	# Print a message box with a warning/error message
 	# Params:
 	#	$1	Message
-	function dlgerror(){
+	function dlgerror() {
 		#TODO: normal error
 		dlg --msgbox "$1" $dlgh $dlgw
 	}
 
 	# Start the dialog configuration
 	# Neither params nor return, this is just a function for hiding local variables!
-	function dlgconfig(){
+	function dlgconfig() {
 		local option_mainmenu_playerA="First Player"
 		local option_mainmenu_playerB="Second Player"
 		local option_mainmenu_settings="Game settings"
@@ -412,7 +417,7 @@ if $guiconfig ; then
 									if dlg_networkport=$(dlg --inputbox "Server Port (non privileged)" $dlgh $dlgw "$port") ; then
 										 validPort "$dlg_networkport" && port=$dlg_networkport || dlgerror "Your input '$dlg_remoteip' is not a valid Port!"
 									fi
-								else 
+								else
 									dlgerror "Your input '$dlg_remoteip' is no valid IP address!"
 									continue
 								fi
@@ -518,7 +523,7 @@ if $guiconfig ; then
 					;;
 
 				# Other --> exit (gdialog)
-				* ) 
+				* )
 					break
 					;;
 			esac
@@ -611,7 +616,7 @@ function nameFigure() {
 # Params:
 #	$1	player
 # Return status code 1 if no king
-function hasKing(){
+function hasKing() {
 	local player=$1;
 	local x
 	local y
@@ -653,7 +658,7 @@ function canMove() {
 	elif (( $fig == 1 )) ; then 
 		if (( $fromX == $toX && $to == 0 && ( $toY - $fromY == $player || ( $toY - $fromY == 2 * $player && ${field["$(($player + $fromY)),$fromX"]} == 0 && $fromY == ( $player > 0 ? 1 : 6 ) ) ) )) ; then
 				return 0
-			else 
+			else
 				return $(( ! ( ($fromX - $toX) * ($fromX - $toX) == 1 && $toY - $fromY == $player && $to * $player < 0 ) )) 
 		fi
 	# queen, rock and bishop
@@ -930,7 +935,7 @@ function negamax() {
 #	$selectedNewY
 #	$selectedNewX
 # Return status code 0 if movement was successfully performed
-function move(){
+function move() {
 	local player=$1
 	if canMove $selectedY $selectedX $selectedNewY $selectedNewX $player ; then
 		local fig=${field[$selectedY,$selectedX]}
@@ -1182,7 +1187,7 @@ function ai() {
 		send $player $selectedNewY $selectedNewX
 		sleep $sleep
 		message="$( namePlayer $player ) moved the $figName from $(coord $selectedY $selectedX) to $(coord $selectedNewY $selectedNewX) (took him $SECONDS seconds)."
-	else 
+	else
 		error "AI produced invalid move - that should not hapen!"
 	fi
 }
@@ -1262,7 +1267,7 @@ function receive() {
 		echo -e "\e[1m$( namePlayer $player )\e[0m moves the \e[3m$figName\e[0m at $(coord $selectedY $selectedX) to $(coord $selectedNewY $selectedNewX)" >&3
 		sleep $sleep
 		message="$( namePlayer $player ) moved the $figName from $(coord $selectedY $selectedX) to $(coord $selectedNewY $selectedNewX) (took him $SECONDS seconds)."
-	else 
+	else
 		error "Received invalid move from network - that should not hapen!"
 	fi
 }
