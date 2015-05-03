@@ -21,6 +21,8 @@ colorFill=true
 ascii=false
 warnings=false
 computer=-1
+mouse=true
+cursor=true
 sleep=2
 cache=""
 cachecompress=false
@@ -57,38 +59,43 @@ function require {
 # Help message
 # Writes text to stdout
 function help {
-	echo "\e[1mChess Bash\e[0m - a small chess game written in Bash"
+	echo -e "\e[1mChess Bash\e[0m - a small chess game written in Bash"
 	echo
-	echo "Usage: $0 [options]"
+	echo -e "\e[4mUsage:\e[0m $0 [options]"
 	echo
-	echo "Game options"
-	echo "    -a NAME    Name of first player, \"$aikeyword\" for computer controlled or the"
+	echo -e "\e[4mConfiguration options\e[0m"
+	echo "    -g         Use a graphical user interface (instead of more parameters)"
+	echo
+	echo -e "\e[4mGame options\e[0m"
+	echo -e "    -a \e[2mNAME\e[0m    Name of first player, \"$aikeyword\" for computer controlled or the"
 	echo "               IP address of remote player (Default: $namePlayerA)"
-	echo "    -b NAME    Name of second player, \"$aikeyword\" for computer controlled or"
-	echo "               \"$remotekeyword\" for another player (Default: $namePlayerB)"
-	echo "    -s NUMBER  Strength of computer (Default: $strength)"
-	echo "    -w NUMBER  Waiting time for messages in seconds (Default: $sleep)"
+	echo -e "    -b \e[2mNAME\e[0m    Name of second player, \"$aikeyword\" for computer controlled or"
+	echo -e "               \"$remotekeyword\" for another player (Default: \e[2m$namePlayerB\e[0m)"
+	echo -e "    -s \e[2mNUMBER\e[0m  Strength of computer (Default: \e[2m$strength\e[0m)"
+	echo -e "    -w \e[2mNUMBER\e[0m  Waiting time for messages in seconds (Default: \e[2m$sleep\e[0m)"
 	echo
-	echo "Network settings for remote gaming"
-	echo "    -P NUMBER  Set port for network connection (Default: $port)"
-	echo "Attention: On a network game the person controlling the first player / A"
-	echo "(using \"-b $remotekeyword\" as parameter) must start the game first!"
+	echo -e "\e[4mNetwork settings for remote gaming\e[0m"
+	echo -e "    -P \e[2mNUMBER\e[0m  Set port for network connection (Default: \e[2m$port\e[0m)"
+	echo -e "\e[1mAttention:\e[0m On a network game the person controlling the first player / A"
+	echo -e "(using \"\e[2m-b $remotekeyword\e[0m\" as parameter) must start the game first!"
 	echo 
-	echo "Cache management"
-	echo "    -c FILE    Makes cache permanent - load and store calculated moves"
+	echo -e "\e[4mCache management\e[0m"
+	echo -e "    -c \e[2mFILE\e[0m    Makes cache permanent - load and store calculated moves"
 	echo "    -z         Compress cache file (only to be used with -c, requires gzip)"
-	echo "    -t STEPS   Exit after STEPS ai turns and print time (for benchmark)"
+	echo -e "    -t \e[2mSTEPS\e[0m   Exit after STEPS ai turns and print time (for benchmark)"
 	echo
-	echo "Output control"
+	echo -e "\e[4mOutput control\e[0m"
 	echo "    -h         This help message"
+	echo "    -V         Disable VT100 cursor movement (for partial output changes)"
+	echo "    -M         Disable terminal mouse support"
 	echo "    -i         Enable verbose input warning messages"
 	echo "    -l         Board labels in ASCII (instead of Unicode)"
 	echo "    -p         Plain ascii output (instead of cute unicode figures)"
 	echo "               This implies ASCII board labels (\"-l\")"
 	echo "    -d         Disable colors (only black/white output)"
-	echo "    Following options will have no effect while colors are disabled:"
-	echo "    -A NUMBER  Color code of first player (Default: $colorPlayerA)"
-	echo "    -B NUMBER  Color code of second player (Default: $colorPlayerB)"
+	echo -e "    \e[4mFollowing options will have no effect while colors are disabled:\e[0m"
+	echo -e "    -A \e[2mNUMBER\e[0m  Color code of first player (Default: \e[2m$colorPlayerA\e[0m)"
+	echo -e "    -B \e[2mNUMBER\e[0m  Color code of second player (Default: \e[2m$colorPlayerB\e[0m)"
 	echo "    -n         Use normal (instead of color filled) figures"
 	echo "    -m         Disable color marking of possible moves"
 	echo
@@ -1035,6 +1042,8 @@ if (( $remote != 0 )) ; then
 	else
 		fifopipe="$fifopipeprefix.client"
 		piper="nc $remoteip $port"
+		echo -e "\e[1mWait!\e[0mPlease make sure the Host (the other Player) has started before continuing. Then press any key! \e[0m"
+		read -n 1
 	fi
 	if [ ! -e "$fifopipe" ] ; then
 		mkfifo "$fifopipe"
