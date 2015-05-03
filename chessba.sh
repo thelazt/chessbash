@@ -22,6 +22,7 @@ ascii=false
 warnings=false
 computer=-1
 mouse=true
+guiconfig=false
 cursor=true
 sleep=2
 cache=""
@@ -43,17 +44,91 @@ remotekeyword="remote"
 aikeyword="ai"
 aiPlayerA="Marvin"
 aiPlayerB="R2D2"
+A=-1
+B=1
+
+# Print version information
+function version() { 
+	echo "ChessBash 0.3"
+}
+
+# Error message, p.a. on bugs
+# Params:
+#	$1	message
+# (no return value, exit game)
+function error() {
+	echo -e "\e[41m\e[1m $1 \e[0m\n\e[3m(Script exit)\e[0m" >&2
+	exit 1
+}
 
 # Check prerequisits (additional executables)
 # taken from an old script of mine (undertaker-tailor)
 # Params:
 #	$1	name of executable
-function require {
+function require() {
 	type $1 >/dev/null 2>&1 ||
 		{
 			echo "This requires $1 but it is not available on your system. Aborting." >&2
 			exit 1
 		}
+}
+
+# Validate a number string
+# Params:
+#	$1	String with number
+# Return 0 if valid, 1 otherwise
+function validNumber(){
+	[[ "$1" =~ ^[0-9]+$ ]] && return 0 || return 1
+}
+
+# Validate a port string
+# Must be non privileged (>1023)
+# Params:
+#	$1	String with port number
+# Return 0 if valid, 1 otherwise
+function validPort(){
+	validNumber "$1" && (( "$1" < 65536 && "$1" > 1023 )) && return 0 || return 1
+}
+
+# Validate an IP v4 or v6 address
+# source: http://stackoverflow.com/a/9221063
+# Params:
+#	$1	IP address to validate
+# Return 0 if valid, 1 otherwise
+function validIP(){
+	[[ "$1" =~ ^(((25[0-5]|2[0-4][0-9]|[01]?[0-9][0-9]?)\.(25[0-5]|2[0-4][0-9]|[01]?[0-9][0-9]?)\.(25[0-5]|2[0-4][0-9]|[01]?[0-9][0-9]?)\.(25[0-5]|2[0-4][0-9]|[01]?[0-9][0-9]?))|((([0-9A-Fa-f]{1,4}:){7}([0-9A-Fa-f]{1,4}|:))|(([0-9A-Fa-f]{1,4}:){6}(:[0-9A-Fa-f]{1,4}|((25[0-5]|2[0-4]\d|1\d\d|[1-9]?\d)(\.(25[0-5]|2[0-4]\d|1\d\d|[1-9]?\d)){3})|:))|(([0-9A-Fa-f]{1,4}:){5}(((:[0-9A-Fa-f]{1,4}){1,2})|:((25[0-5]|2[0-4]\d|1\d\d|[1-9]?\d)(\.(25[0-5]|2[0-4]\d|1\d\d|[1-9]?\d)){3})|:))|(([0-9A-Fa-f]{1,4}:){4}(((:[0-9A-Fa-f]{1,4}){1,3})|((:[0-9A-Fa-f]{1,4})?:((25[0-5]|2[0-4]\d|1\d\d|[1-9]?\d)(\.(25[0-5]|2[0-4]\d|1\d\d|[1-9]?\d)){3}))|:))|(([0-9A-Fa-f]{1,4}:){3}(((:[0-9A-Fa-f]{1,4}){1,4})|((:[0-9A-Fa-f]{1,4}){0,2}:((25[0-5]|2[0-4]\d|1\d\d|[1-9]?\d)(\.(25[0-5]|2[0-4]\d|1\d\d|[1-9]?\d)){3}))|:))|(([0-9A-Fa-f]{1,4}:){2}(((:[0-9A-Fa-f]{1,4}){1,5})|((:[0-9A-Fa-f]{1,4}){0,3}:((25[0-5]|2[0-4]\d|1\d\d|[1-9]?\d)(\.(25[0-5]|2[0-4]\d|1\d\d|[1-9]?\d)){3}))|:))|(([0-9A-Fa-f]{1,4}:){1}(((:[0-9A-Fa-f]{1,4}){1,6})|((:[0-9A-Fa-f]{1,4}){0,4}:((25[0-5]|2[0-4]\d|1\d\d|[1-9]?\d)(\.(25[0-5]|2[0-4]\d|1\d\d|[1-9]?\d)){3}))|:))|(:(((:[0-9A-Fa-f]{1,4}){1,7})|((:[0-9A-Fa-f]{1,4}){0,5}:((25[0-5]|2[0-4]\d|1\d\d|[1-9]?\d)(\.(25[0-5]|2[0-4]\d|1\d\d|[1-9]?\d)){3}))|:))))$ ]] && return 0 || return 1
+}
+
+# Named ANSI colors
+declare -a colors=( "black" "red" "green" "yellow" "blue" "magenta" "cyan" "white" )
+
+# Retrieve ANSI color code from string
+# Black and white are ignored!
+# Params:
+#	$1	Color string
+# Return Color code or 0 if not a valid
+function getColor(){
+	local c
+	for (( c=1; c<7; c++ )) ; do
+		local v=${colors[$c]:0:1}
+		local i=${1:0:1}
+		if [[ "${v^^}" == "${i^^}" || "$c" -eq "$i" ]] ; then
+			return $c
+		fi
+	done
+	return 0
+}
+
+# Check if ai player
+# Params:
+#	$1	player
+# Return status code 0 if ai player
+function isAI() {
+	if (( $1 < 0 )) ; then
+		[ "${namePlayerA,,}" == "${aikeyword,,}" ] && return 0 || return 1
+	else
+		[ "${namePlayerB,,}" == "${aikeyword,,}" ]  && return 0 || return 1
+	fi
 }
 
 # Help message
@@ -86,6 +161,7 @@ function help {
 	echo
 	echo -e "\e[4mOutput control\e[0m"
 	echo "    -h         This help message"
+	echo "    -v         Version information"
 	echo "    -V         Disable VT100 cursor movement (for partial output changes)"
 	echo "    -M         Disable terminal mouse support"
 	echo "    -i         Enable verbose input warning messages"
@@ -102,21 +178,21 @@ function help {
 }
 
 # Parse command line arguments
-while getopts ":a:A:b:B:c:P:s:t:w:dhilmnpz" options; do
+while getopts ":a:A:b:B:c:P:s:t:w:dghilmMnpvVz" options; do
 	case $options in
 		a )	if [[ -z "$OPTARG" ]] ;then
 				echo "No valid name for first player specified!" >&2
 				exit 1
 			# IPv4 && IPv6 validation, source: http://stackoverflow.com/a/9221063
-			elif [[ "$OPTARG" =~ ^(((25[0-5]|2[0-4][0-9]|[01]?[0-9][0-9]?)\.(25[0-5]|2[0-4][0-9]|[01]?[0-9][0-9]?)\.(25[0-5]|2[0-4][0-9]|[01]?[0-9][0-9]?)\.(25[0-5]|2[0-4][0-9]|[01]?[0-9][0-9]?))|((([0-9A-Fa-f]{1,4}:){7}([0-9A-Fa-f]{1,4}|:))|(([0-9A-Fa-f]{1,4}:){6}(:[0-9A-Fa-f]{1,4}|((25[0-5]|2[0-4]\d|1\d\d|[1-9]?\d)(\.(25[0-5]|2[0-4]\d|1\d\d|[1-9]?\d)){3})|:))|(([0-9A-Fa-f]{1,4}:){5}(((:[0-9A-Fa-f]{1,4}){1,2})|:((25[0-5]|2[0-4]\d|1\d\d|[1-9]?\d)(\.(25[0-5]|2[0-4]\d|1\d\d|[1-9]?\d)){3})|:))|(([0-9A-Fa-f]{1,4}:){4}(((:[0-9A-Fa-f]{1,4}){1,3})|((:[0-9A-Fa-f]{1,4})?:((25[0-5]|2[0-4]\d|1\d\d|[1-9]?\d)(\.(25[0-5]|2[0-4]\d|1\d\d|[1-9]?\d)){3}))|:))|(([0-9A-Fa-f]{1,4}:){3}(((:[0-9A-Fa-f]{1,4}){1,4})|((:[0-9A-Fa-f]{1,4}){0,2}:((25[0-5]|2[0-4]\d|1\d\d|[1-9]?\d)(\.(25[0-5]|2[0-4]\d|1\d\d|[1-9]?\d)){3}))|:))|(([0-9A-Fa-f]{1,4}:){2}(((:[0-9A-Fa-f]{1,4}){1,5})|((:[0-9A-Fa-f]{1,4}){0,3}:((25[0-5]|2[0-4]\d|1\d\d|[1-9]?\d)(\.(25[0-5]|2[0-4]\d|1\d\d|[1-9]?\d)){3}))|:))|(([0-9A-Fa-f]{1,4}:){1}(((:[0-9A-Fa-f]{1,4}){1,6})|((:[0-9A-Fa-f]{1,4}){0,4}:((25[0-5]|2[0-4]\d|1\d\d|[1-9]?\d)(\.(25[0-5]|2[0-4]\d|1\d\d|[1-9]?\d)){3}))|:))|(:(((:[0-9A-Fa-f]{1,4}){1,7})|((:[0-9A-Fa-f]{1,4}){0,5}:((25[0-5]|2[0-4]\d|1\d\d|[1-9]?\d)(\.(25[0-5]|2[0-4]\d|1\d\d|[1-9]?\d)){3}))|:))))$ ]] ; then
+			elif validIP "$OPTARG" ; then
 				remote=-1
 				remoteip="$OPTARG"
 			else
 				namePlayerA="$OPTARG"
 			fi
 			;;
-		A )	if [[ "$OPTARG" =~ "^[1-8]$" ]] ;then
-				colorPlayerA=$OPTARG
+		A )	if ! getColor "$OPTARG" ; then
+				colorPlayerA=$?
 			else
 				echo "'$OPTARG' is not a valid color!" >&2
 				exit 1
@@ -131,28 +207,28 @@ while getopts ":a:A:b:B:c:P:s:t:w:dhilmnpz" options; do
 				namePlayerB="$OPTARG"
 			fi
 			;;
-		B )	if [[ "$OPTARG" =~ ^[1-8]$ ]] ;then
-				colorPlayerB=$OPTARG
+		B )	if ! getColor "$OPTARG" ; then
+				colorPlayerB=$?
 			else
 				echo "'$OPTARG' is not a valid color!" >&2
 				exit 1
 			fi
 			;;
-		s )	if [[ "$OPTARG" =~ ^[0-9]+$ ]] ;then
+		s )	if validNumber "$OPTARG" ; then
 				strength=$OPTARG
 			else
 				echo "'$OPTARG' is not a valid strength!" >&2
 				exit 1
 			fi
 			;;
-		P )	if [[ "$OPTARG" =~ ^[0-9]+$ ]] && (( "$OPTARG" < 65536 && "$OPTARG" > 1023 )) ;then
+		P )	if validPort "$OPTARG" ; then
 				port=$OPTARG
 			else
 				echo "'$OPTARG' is not a valid gaming port!" >&2
 				exit 1
 			fi
 			;;
-		w )	if [[ $OPTARG =~ ^[0-9]+$ ]] ;then
+		w )	if validNumber "$OPTARG" ; then
 				sleep=$OPTARG
 			else
 				echo "'$OPTARG' is not a valid waiting time!" >&2
@@ -166,7 +242,7 @@ while getopts ":a:A:b:B:c:P:s:t:w:dhilmnpz" options; do
 				cache="$OPTARG"
 			fi
 			;;
-		t )	if [[ "$OPTARG" =~ ^[0-9]+$ ]] ;then
+		t )	if validNumber "$OPTARG" ; then
 				computer=$OPTARG
 			else
 				echo "'$OPTARG' is not a valid number for steps!" >&2
@@ -175,16 +251,24 @@ while getopts ":a:A:b:B:c:P:s:t:w:dhilmnpz" options; do
 			;;
 		d )	color=false
 			;;
+		g )	guiconfig=true
+			;;
 		l )	unicodelabels=false
 			;;
 		n )	colorFill=false
 			;;
 		m )	colorHelper=false
 			;;
+		M )	mouse=false
+			;;
 		p )	ascii=true
 			unicodelabels=false
 			;;
 		i )	warnings=true
+			;;
+		v )	version
+			;;
+		V )	cursor=false
 			;;
 		z )	require gzip
 			require zcat
@@ -198,6 +282,252 @@ while getopts ":a:A:b:B:c:P:s:t:w:dhilmnpz" options; do
 			;;
 	esac
 done
+
+# get terminal dimension
+echo -en '\e[18t'
+if read -d "t" -s -t 1 tmp ; then
+	termDim=(${tmp//;/ })
+	termHeight=${termDim[1]}
+	termWidth=${termDim[2]}
+else
+	termHeight=24
+	termWidth=80
+fi
+
+# gui config
+if $guiconfig ; then
+
+	# find a dialog system
+	if type gdialog >/dev/null 2>&1 ; then
+		dlgtool="gdialog"
+		dlgh=0
+		dlgw=100
+	elif type dialog >/dev/null 2>&1 ; then
+		dlgtool="dialog"
+		dlgh=0
+		dlgw=0
+	elif type whiptail >/dev/null 2>&1 ; then
+		dlgtool="whiptail"
+		dlgh=0
+		dlgw=$(( termWidth-10 ))
+	else
+		dlgtool=""
+		error "The graphical configuration requires gdialog/zenity, dialog or at least whiptail - but none of them was found on your system. You have to use the arguments to configure the game unless you install one of the required tools..."
+	fi
+
+	# Output the type of the first player in a readable string
+	function typeOfPlayerA(){
+		if [[ "$remote" -eq "-1" ]] ; then
+			echo "Connect to $remoteip (Port $port)"
+			return 2
+		elif isAI $A ; then
+			echo "Artificial Intelligence (with strength $strength)"
+			return 1
+		else
+			echo "Human named $namePlayerA"
+			return 0
+		fi
+	}
+
+	# Output the type of the second player in a readable string
+	function typeOfPlayerB(){
+		if [[ "$remote" -eq "1" ]] ; then
+			echo "Host server at port $port"
+			return 2
+		elif isAI $B ; then
+			echo "Artificial Intelligence (with strength $strength)"
+			return 1
+		else
+			echo "Human named $namePlayerB"
+			return 0
+		fi
+	}
+
+	# Execute a dialog
+	# Params: Dialog params (variable length)
+	# Prints: Dialog output seperated by new lines
+	# Returns the dialog program return or 255 if no dialog tool available
+	function dlg() {
+		if [[ -n "$dlgtool" ]] ; then
+			$dlgtool --backtitle "ChessBash" "$@" 3>&1 1>&2 2>&3 | sed -e "s/|/\n/g" | sort -u
+			return ${PIPESTATUS[0]}
+		else 
+			return 255
+		fi
+	}
+
+	# Print a message box with a warning/error message
+	# Params:
+	#	$1	Message
+	function dlgerror(){
+		#TODO: normal error
+		dlg --msgbox "$1" $dlgh $dlgw
+	}
+
+	# Start the dialog configuration
+	# Neither params nor return, this is just a function for hiding local variables!
+	function dlgconfig(){
+		local option_mainmenu_playerA="First Player"
+		local option_mainmenu_playerB="Second Player"
+		local option_mainmenu_settings="Game settings"
+		local dlg_on="ON"
+		local dlg_off="OFF"
+
+		declare -a option_player=( "Human" "Computer" "Network" )
+		declare -a option_settings=( "Color support" "Unicode support" "Verbose Messages" "Mouse support" "AI Cache" )
+
+		local dlg_main
+		while dlg_main=$(dlg --ok-button "Edit" --cancel-button "Start Game" --menu "New Game" $dlgh $dlgw 0 "$option_mainmenu_playerA" "$(typeOfPlayerA || true)" "$option_mainmenu_playerB" "$(typeOfPlayerB || true )" "$option_mainmenu_settings" "Color, Unicode, Mouse & AI Cache") ; do
+			case "$dlg_main" in
+
+				# Player A settings
+				"$option_mainmenu_playerA" )
+					typeOfPlayerA > /dev/null
+					local type=$?
+					local dlg_player=$(dlg --nocancel --default-item "${option_player[$type]}" --menu "$option_mainmenu_playerA" $dlgh $dlgw 0 "${option_player[0]}" "$( isAI $A && echo "$option_mainmenu_playerA" || echo "$namePlayerA" )" "${option_player[1]}" "with AI (of strength $strength)" "${option_player[2]}" "Connect to Server $remoteip" )
+					case "$dlg_player" in
+						# Human --> get Name
+						*"${option_player[0]}"* )
+							[[ "$remote" -eq "-1" ]] && remote=0
+							local dlg_namePlayer
+							dlg_namePlayer=$(dlg --inputbox "Name of $option_mainmenu_playerA" $dlgh $dlgw "$( isAI $A && echo "$option_mainmenu_playerA" || echo "$namePlayerA" )") && namePlayerA="$dlg_namePlayer"
+							;;
+						# Computer --> get Strength
+						*"${option_player[1]}"* )
+							[[ "$remote" -eq "-1" ]] && remote=0
+							namePlayerA=$aikeyword
+							local dlg_strength
+							if dlg_strength=$(dlg --inputbox "Strength of Computer" $dlgh $dlgw  "$strength") ; then
+								validNumber "$dlg_strength" && strength=$dlg_strength || dlgerror "Your input '$dlg_strength' is not a valid number!"
+							fi
+							;;
+						# Network --> get Server and Port
+						*"${option_player[2]}"* )
+							local dlg_remoteip
+							if dlg_remoteip=$(dlg --inputbox "IP(v4 or v6) address of Server" $dlgh $dlgw "$remoteip") ; then
+								if validIP "$dlg_remoteip" ; then
+									remote=-1
+									remoteip="$dlg_remoteip"
+									local dlg_networkport
+									if dlg_networkport=$(dlg --inputbox "Server Port (non privileged)" $dlgh $dlgw "$port") ; then
+										 validPort "$dlg_networkport" && port=$dlg_networkport || dlgerror "Your input '$dlg_remoteip' is not a valid Port!"
+									fi
+								else 
+									dlgerror "Your input '$dlg_remoteip' is no valid IP address!"
+									continue
+								fi
+							fi
+							;;
+					esac
+					# Player color
+					if $color ; then
+						local colorlist=""
+						local c
+						for (( c=1; c<7; c++ )) ; do
+							colorlist+=" ${colors[$c]^} figures"
+						done
+						local dlg_player_color
+						if dlg_player_color=$(dlg --nocancel --default-item "${colors[$colorPlayerA]^}" --menu "Color of $option_mainmenu_playerA" $dlgh $dlgw 0 $colorlist) ; then
+							getColor "$dlg_player_color" || colorPlayerA=$?
+						fi
+					fi
+					;;
+
+				# Player B settings
+				"$option_mainmenu_playerB" )
+					typeOfPlayerB > /dev/null
+					local type=$?
+					local dlg_player=$(dlg --nocancel --default-item "${option_player[$type]}" --menu "$option_mainmenu_playerB" $dlgh $dlgw 0 "${option_player[0]}" "$( isAI $B && echo "$option_mainmenu_playerB" || echo "$namePlayerB" )" "${option_player[1]}" "with AI (of strength $strength)" "${option_player[2]}" "Wait for connections on port $port" )
+					case "$dlg_player" in
+						# Human --> get Name
+						*"${option_player[0]}"* )
+							[[ "$remote" -eq "1" ]] && remote=0
+							local dlg_namePlayer
+							dlg_namePlayer=$(dlg --inputbox "Name of $option_mainmenu_playerB" $dlgh $dlgw "$( isAI $B && echo "$option_mainmenu_playerB" || echo "$namePlayerB" )") && namePlayerA="$dlg_namePlayer"
+							;;
+						# Computer --> get Strength
+						*"${option_player[1]}"* )
+							[[ "$remote" -eq "1" ]] && remote=0
+							namePlayerB=$aikeyword
+							local dlg_strength
+							if dlg_strength=$(dlg --inputbox "Strength of Computer" $dlgh $dlgw  "$strength") ; then
+								validNumber "$dlg_strength" && strength=$dlg_strength || dlgerror "Your input '$dlg_strength' is not a valid number!"
+							fi
+							;;
+						# Network --> get Server and Port
+						*"${option_player[2]}"* )
+							remote=1
+							local dlg_networkport
+							if dlg_networkport=$(dlg --inputbox "Server Port (non privileged)" $dlgh $dlgw "$port") ; then
+								 validPort "$dlg_networkport" && port=$dlg_networkport || dlgerror "Your input '$dlg_remoteip' is not a valid Port!"
+							fi
+							;;
+					esac
+					# Player color
+					if $color ; then
+						local colorlist=""
+						local c
+						for (( c=1; c<7; c++ )) ; do
+							colorlist+=" ${colors[$c]^} figures"
+						done
+						local dlg_player_color
+						if dlg_player_color=$(dlg --nocancel --default-item "${colors[$colorPlayerB]^}" --menu "Color of $option_mainmenu_playerB" $dlgh $dlgw 0 $colorlist) ; then
+							getColor "$dlg_player_color" || colorPlayerB=$?
+						fi
+					fi
+					;;
+
+				# Game settings
+				"$option_mainmenu_settings" )
+					if dlg_settings=$(dlg --separate-output --checklist "$option_mainmenu_settings" $dlgh $dlgw $dlgw "${option_settings[0]}" "with movements and figures" $($color && echo $dlg_on || echo $dlg_off) "${option_settings[1]}" "optional including board labels" $($ascii && echo $dlg_off || echo $dlg_on) "${option_settings[2]}" "be chatty" $($warnings && echo $dlg_on || echo $dlg_off) "${option_settings[3]}" "be clicky" $($mouse && echo $dlg_on || echo $dlg_off) "${option_settings[4]}" "in a regluar file" $([[ -n "$cache" ]] && echo $dlg_on || echo $dlg_off) ) ; then
+						# Color support
+						if [[ "$dlg_settings" == *"${option_settings[0]}"* ]] ; then
+							color=true
+							dlg --yesno "Enable movement helper (colorize possible move)?" $dlgh $dlgw && colorHelper=true || colorHelper=false
+							dlg --yesno "Use filled (instead of outlined) figures for both player?" $dlgh $dlgw && colorFill=true || colorFill=false
+						else
+							color=false
+							colorFill=false
+							colorHelper=false
+						fi
+						# Unicode support
+						if [[ "$dlg_settings" == *"${option_settings[1]}"* ]] ; then
+							ascii=false
+							( dlg --yesno "Use Unicode for board labels?" $dlgh $dlgw ) && unicodelabels=true || unicodelabels=false
+						else
+							ascii=true
+							unicodelabels=false
+						fi
+						# Verbose messages
+						[[ "$dlg_settings" == *"${option_settings[2]}"* ]] && warnings=true || warnings=false
+						# Mouse support
+						[[ "$dlg_settings" == *"${option_settings[3]}"* ]] && mouse=true || mouse=false
+						# AI Cache
+						if [[ "$dlg_settings" == *"${option_settings[4]}"* ]] && local dlg_cache=$(dlg --inputbox "Cache file:" $dlgh $dlgw "$([[ -z "$cache" ]] && echo "$(pwd)/chessbash.cache" || echo "$cache")") && [[ -n "$dlg_cache" ]] ; then
+							cache="$dlg_cache"
+							type gzip >/dev/null 2>&1 && type zcat >/dev/null 2>&1 && dlg --yesno "Use GZip compression for Cache?" $dlgh $dlgw && cachecompress=true || cachecompress=false
+						else
+							cache=""
+						fi
+						# Waiting time (ask always)
+						local dlg_sleep
+						if dlg_sleep=$(dlg --inputbox "How long should every message be displayed (in seconds)?" $dlgh $dlgw "$sleep") ; then
+							 validNumber "$dlg_sleep" && sleep=$dlg_sleep || dlgerror "Your input '$dlg_sleep' is not a valid number!"
+						fi
+					fi
+					;;
+
+				# Other --> exit (gdialog)
+				* ) 
+					break
+					;;
+			esac
+		done
+	}
+
+	# start config dialog
+	dlgconfig
+fi
 
 # lookup tables
 declare -A cacheLookup
@@ -232,15 +562,6 @@ declare -a asciiNames=( "k" "q" "r" "b" "n" "p" " " "P" "N" "B" "R" "Q" "K" )
 # figure weight (for heuristic)
 declare -a figValues=( 0 1 5 5 6 17 42 )
 
-# Error message, p.a. on bugs
-# Params:
-#	$1	message
-# (no return value, exit game)
-function error() {
-	echo -e "\e[41m\e[1m $1 \e[0m\n\e[3m(Script exit)\e[0m" >&2
-	exit 1
-}
-
 # Warning message on invalid moves (Helper)
 # Params:
 #	$1	message
@@ -256,18 +577,6 @@ function warn() {
 # Writes coordinates to stdout
 function coord() {
 	echo -en "\x$((48-$1))$(($2+1))"
-}
-
-# Check if ai player
-# Params:
-#	$1	player
-# Return status code 0 if ai player
-function isAI() {
-	if (( $1 < 0 )) ; then
-		[ "${namePlayerA,,}" == "$aikeyword" ] && return 0 || return 1
-	else
-		[ "${namePlayerB,,}" == "$aikeyword" ]  && return 0 || return 1
-	fi
 }
 
 # Get name of player
