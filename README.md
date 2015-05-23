@@ -2,15 +2,21 @@ Chess Bash
 ==========
 A simple chess game written in a bash script.
 
+Screenshot
+----------
+![ChessBa.sh in action](screenshot.png?raw=true)
 
 Features
 --------
   * Pure Bash script
   * Chess engine / computer enemy (and even computer versus computer)
-  * Unicode support
-  * Coloured output
+  * Unicode support (nice Figures)
+  * Coloured output (using ANSI Codes)
   * Network support (aka Multiplayer)
   * Permanent transposition tables (import/export)
+  * Keyboard cursor and mouse support
+  * Partial redraw (by cursor movements)
+  * "Graphical" configuration (dialog utils)
 
 *Hey, this is just a fast scrawled script, what do you expect?*
 
