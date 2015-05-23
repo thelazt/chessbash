@@ -16,6 +16,7 @@ namePlayerB="AI"
 color=true
 colorPlayerA=4
 colorPlayerB=1
+colorHover=4
 colorHelper=true
 colorFill=true
 ascii=false
@@ -46,10 +47,47 @@ aiPlayerA="Marvin"
 aiPlayerB="R2D2"
 A=-1
 B=1
+originY=4
+originX=6
+hoverX=0
+hoverY=0
+labelX=-2
+labelY=9
+type stty >/dev/null 2>&1 && useStty=true || useStty=false
+
+# Choose unused color for hover
+while (( colorHover == colorPlayerA || colorHover == colorPlayerB )) ; do
+	(( colorHover++ ))
+done
+
+# Save screen
+echo -e "\e[0m\nWelcome to \e[1mChessBa.sh\e[0m - a Chess game written in Bash \e[2mby Bernhard Heinloth, 2015\e[0m\n\e7\e[s\e[?47h\e[?25l\e[2J\e[H"
+sleep 0.1
+
+# Check Unicode availbility
+# We do this using a trick: printing a special zero-length unicode char (http://en.wikipedia.org/wiki/Combining_Grapheme_Joiner) and retrieving the cursor position afterwards.
+# If the cursor position is at beginning, the terminal knows unicode. Otherwise it has printed some replacement character.
+echo -en "\r\n\u034f\e[6n" && read -sN6 -t0.1 x
+if [[ "${x:4:1}" == "1" ]] ; then
+	ascii=false
+	unicodelabels=true
+else
+	ascii=true
+	unicodelabels=false
+fi
 
 # Print version information
 function version() {
-	echo "ChessBash 0.3"
+	echo "ChessBash 0.4"
+}
+
+# Wait for key press
+# no params/return
+function anyKey(){
+	$useStty && stty echo
+	echo -e "\e[2m(Press any key to continue)\e[0m"
+	read -sN1
+	$useStty && stty -echo
 }
 
 # Error message, p.a. on bugs
@@ -57,7 +95,8 @@ function version() {
 #	$1	message
 # (no return value, exit game)
 function error() {
-	echo -e "\e[41m\e[1m $1 \e[0m\n\e[3m(Script exit)\e[0m" >&2
+	echo -e "\e[0;1;41m $1 \e[0m\n\e[3m(Script exit)\e[0m" >&2
+	anyKey
 	exit 1
 }
 
@@ -540,6 +579,15 @@ declare -A cacheFlag
 declare -A cacheDepth
 
 # associative arrays are faster than numeric ones and way more readable
+declare -A redraw
+if $coursor ; then
+	for (( y=0; y<10; y++ )) ; do
+		for (( x=-2; x<8; x++ )) ; do
+			redraw[$y,$x]=""
+		done
+	done
+fi
+
 declare -A field
 
 # initialize setting - first row
@@ -572,7 +620,8 @@ declare -a figValues=( 0 1 5 5 6 17 42 )
 #	$1	message
 # (no return value)
 function warn() {
-	echo -e "\r                                                                     \r\e[41m\e[1m$1\e[0m\n"
+	message="\e[41m\e[1m$1\e[0m\n"
+	draw
 }
 
 # Readable coordinates
@@ -596,7 +645,7 @@ function namePlayer() {
 		$color && echo -en "\e[3${colorPlayerB}m"
 		isAI $1 && echo -n $aiPlayerB || echo -n $namePlayerB
 	fi
-	$color && echo -en "\e[37m"
+	$color && echo -en "\e[0m"
 }
 
 # Get name of figure
@@ -747,7 +796,7 @@ function negamax() {
 		cacheLookup[$hash]=1
 		cacheDepth[$hash]=$depth
 		cacheFlag[$hash]=0
-		return 1
+		return $(( $strength - $depth + 1 ))
 	# use heuristics in depth
 	elif (( $depth <= 0 )) ; then
 		local values=0
@@ -771,10 +820,10 @@ function negamax() {
 		done
 		values=$(( 127 + ( $player * $values ) ))
 		# ensure valid bash return range
-		if (( $values > 254 )) ; then
-			values=254
-		elif (( $values < 1 )) ; then
-			values=1
+		if (( $values > 253 - $strength )) ; then
+			values=$(( 253 - $strength ))
+		elif (( $values < 2 + $strength )) ; then
+			values=$(( 2 + $strength ))
 		fi
 		cacheLookup[$hash]=$values
 		cacheDepth[$hash]=0
@@ -952,11 +1001,15 @@ function move() {
 
 # Unicode helper function (for draw) 
 # Params:
-#	$1	decimal unicode character number
+#	$1	first hex unicode character number
+#	$2	second hex unicode character number
+#	$3	third hex unicode character number
+#	$4	integer offset of third hex
 # Outputs escape character
 function unicode() {
 	if ! $ascii ; then
-		printf '\\u%x\n' $1
+#		printf '\\u%x\n' $1
+		printf '\\x%s\\x%s\\x%x' $1 $2 $(( 0x$3 + ( $4 ) ))
 	fi
 }
 
@@ -968,144 +1021,299 @@ function ascii() {
 	echo -en "\x$1"
 }
 
-# Draw the battlefield
-# (no params / return value)
-function draw() {
-	echo -e "\e[0m\ec\n\e[2m$message\e[0m\n"
-	for (( y=0; y<8; y++ )) ; do
-		if (( $selectedY == $y )) ; then
-			echo -en "\e[2m"
+# Get ascii code number of character
+# Params:
+#	$1	ascii character
+# Outputs decimal ascii character number
+function ord() {
+	LC_CTYPE=C printf '%d' "'$1"
+}
+
+# Audio and visual bell
+# No params or return
+function bell() {
+	if (( lastBell != SECONDS )) ; then
+		echo -en "\a\e[?5h"
+		sleep 0.1
+		echo -en "\e[?5l"
+		lastBell=$SECONDS
+	fi
+}
+
+# Draw one field (of the gameboard)
+# Params:
+#	$1	y coordinate
+#	$2	x coordinate
+#	$3	true if cursor should be moved to position
+# Outputs formated field content
+function drawField(){
+	local y=$1
+	local x=$2
+	echo -en "\e[0m"
+	# move coursor to absolute position
+	if $3 ; then
+		local yScr=$(( $y + $originY ))
+		local xScr=$(( $x * 2 + $originX ))
+		if $ascii || (( x == labelX )) ; then
+			local xScr=$(( $x * 3 + $originX ))
+		fi
+		echo -en "\e[${yScr};${xScr}H"
+	fi
+	# draw vertical labels
+	if (( x==labelX && y >= 0 && y < 8)) ; then
+		if (( hoverY == y )) ; then
+			echo -en "\e[3${colorHover}m"
+		elif (( selectedY == y )) ; then
+			(( ${field[$selectedY,$selectedX]} < 0 )) && echo -en "\e[3${colorPlayerA}m" || echo -en "\e[3${colorPlayerB}m"
 		fi
 		# line number (alpha numeric)
-		if $unicodelabels ; then
-			echo -en "  $(unicode $((9405 - $y))) "
-		else
-			echo -en "  \x$((48 - $y))"
-		fi
+		$unicodelabels && echo -en " $(unicode e2 92 bd -$y) "  || echo -en "  \x$((48 - $y))"
 		# clear format
-		echo -en "\e[0m  "
-		for (( x=0; x<8; x++ )) ; do
-			local f=${field["$y,$x"]}
-			local black=false
-			if (( (x+y)%2 == 0 )) ; then
-				local black=true
-			fi
-			# black/white fields
-			if $black ; then
-				$color && echo -en "\e[107m" || echo -en "\e[7m"
-			else
-				$color && echo -en "\e[40m"
-			fi
-			# background
-			if (( $selectedX != -1 && $selectedY != -1 )) ; then
-				local selectedPlayer=$(( ${field[$selectedY,$selectedX]} > 0 ? 1 : -1 ))
-				if (( $selectedX == $x && $selectedY == $y )) ; then
-					if ! $color ; then 
-						echo -en "\e[2m"
-					elif $black ; then
-						echo -en "\e[47m"
-					else
-						echo -en "\e[100m"
-					fi
-				elif $color && $colorHelper && canMove $selectedY $selectedX $y $x $selectedPlayer ; then
-					if $black ; then
-						(( $selectedPlayer < 0 )) && echo -en "\e[10${colorPlayerA}m" || echo -en "\e[10${colorPlayerB}m"
-					else
-						(( $selectedPlayer < 0 )) && echo -en "\e[4${colorPlayerA}m" || echo -en "\e[4${colorPlayerB}m"
-					fi
-				fi
-			fi
-			# empty field?
-			if ! $ascii && (( $f == 0 )) ; then
-				echo -en " "
-			else
-				# figure colors
-				if $color ; then
-					if (( $selectedX == $x && $selectedY == $y )) ; then
-						(( $f < 0 )) && echo -en "\e[3${colorPlayerA}m" || echo -en "\e[3${colorPlayerB}m"
-					else
-						(( $f < 0 )) && echo -en "\e[9${colorPlayerA}m" || echo -en "\e[9${colorPlayerB}m"
-					fi
-				fi
-				# unicode figures
-				if $ascii ; then
-					echo -en " \e[1m${asciiNames[ $f + 6 ]}"
-				elif (( $f > 0 )) ; then
-					if $color && $colorFill ; then
-						echo -en "$( unicode $(( 9824 - $f )) )"
-					else
-						echo -en "$( unicode $(( 9818 - $f )) )"
-					fi
-				else
-					echo -en "$( unicode $(( 9824 + $f )) )"
-				fi
-			fi
-			# clear format
-			echo -en " \e[0m"
-		done
-		echo ""
-	done
-	# numbering
-	echo -en "\n     "
-	for (( x=0; x<8; x++ )) ; do
-		(( $selectedX == $x )) && echo -en "\e[2m" || echo -en "\e[0m"
+	# draw horizontal labels
+	elif (( x>=0 && y==labelY )) ; then
+		if (( hoverX == x )) ; then
+			echo -en "\e[3${colorHover}m"
+		elif (( selectedX == x )) ; then
+			(( ${field[$selectedY,$selectedX]} < 0 )) && echo -en "\e[3${colorPlayerA}m" || echo -en "\e[3${colorPlayerB}m"
+		else
+			echo -en "\e[0m"
+		fi
 		if $unicodelabels ; then
-			echo -en " $(unicode $(( 10112 + $x )) )"
+			echo -en "$(unicode e2 9e 80 $x ) "
 		else
 			if $ascii ; then
 				echo -n " "
 			fi
 			echo -en "\x$((31 + $x)) "
 		fi
-	done
+	# draw field
+	elif (( y >=0 && y < 8 && x >= 0 && x < 8 )) ; then
+		local f=${field["$y,$x"]}
+		local black=false
+		if (( (x+y)%2 == 0 )) ; then
+			local black=true
+		fi
+		# black/white fields
+		if $black ; then
+			$color && echo -en "\e[47;107m" || echo -en "\e[7m"
+		else
+			$color && echo -en "\e[40m"
+		fi
+		# background
+		if (( hoverX == x && hoverY == y )) ; then
+			$black && echo -en "\e[4${colorHover};10${colorHover}m" || echo -en "\e[4${colorHover}m"
+		elif (( $selectedX != -1 && $selectedY != -1 )) ; then
+			local selectedPlayer=$(( ${field[$selectedY,$selectedX]} > 0 ? 1 : -1 ))
+			if (( $selectedX == $x && $selectedY == $y )) ; then
+				if ! $color ; then 
+					echo -en "\e[2m"
+				elif $black ; then
+					echo -en "\e[47m"
+				else
+					echo -en "\e[40;100m"
+				fi
+			elif $color && $colorHelper && canMove $selectedY $selectedX $y $x $selectedPlayer ; then
+				if $black ; then
+					(( $selectedPlayer < 0 )) && echo -en "\e[4${colorPlayerA};10${colorPlayerA}m" || echo -en "\e[4${colorPlayerB};10${colorPlayerB}m"
+				else
+					(( $selectedPlayer < 0 )) && echo -en "\e[4${colorPlayerA}m" || echo -en "\e[4${colorPlayerB}m"
+				fi
+			fi
+		fi
+		# empty field?
+		if ! $ascii && (( $f == 0 )) ; then
+			echo -en "  "
+		else
+			# figure colors
+			if $color ; then
+				if (( $selectedX == $x && $selectedY == $y )) ; then
+					(( $f < 0 )) && echo -en "\e[3${colorPlayerA}m" || echo -en "\e[3${colorPlayerB}m"
+				else
+					(( $f < 0 )) && echo -en "\e[3${colorPlayerA};9${colorPlayerA}m" || echo -en "\e[3${colorPlayerB};9${colorPlayerB}m"
+				fi
+			fi
+			# unicode figures
+			if $ascii ; then
+				echo -en " \e[1m${asciiNames[ $f + 6 ]} "
+			elif (( $f > 0 )) ; then
+				if $color && $colorFill ; then
+					echo -en "$( unicode e2 99 a0 -$f ) "
+				else
+					echo -en "$( unicode e2 99 9a -$f ) "
+				fi
+			else
+				echo -en "$( unicode e2 99 a0 $f ) "
+			fi
+		fi
+	# three empty chars
+	elif (( x == labelX )) || $ascii ; then
+		echo -n "   "
+	# otherwise: two empty chars (on unicode boards)
+	else
+		echo -n "  "
+	fi
 	# clear format
-	echo -e "  \e[0m\n"
+	echo -en "\e[0m\e[8m"
 }
 
-# Read row from user input
-# Params:
-#	$1	current player
-# Returns row (0-7) as status code
-function inputY() {
-	local i
-	while true; do
-		echo -en "\r                                                                     \r"
-		read -n 1 -p "$1" i
-		case $i in
-			[8hH] ) return 0 ;;
-			[7gG] ) return 1 ;;
-			[6fF] ) return 2 ;;
-			[5eE] ) return 3 ;;
-			[4dD] ) return 4 ;;
-			[3cC] ) return 5 ;;
-			[2bB] ) return 6 ;;
-			[1aA] ) return 7 ;;
-			"" ) continue ;;
-			* )
-				if $warnings ; then
-					warn "Invalid input '$i' - please enter a character between 'a' and 'h' for the row!"
+# Draw the battlefield
+# (no params / return value)
+function draw() {
+	local ty
+	local tx
+	$useStty && stty -echo
+	$cursor || echo -e "\e[2J"
+	echo -e "\e[H\e[?25l\e[0m\n\e[K$title\e[0m\n\e[K"
+	for (( ty=0; ty<10; ty++ )) ; do
+		for (( tx=-2; tx<8; tx++ )) ; do
+			if $cursor ; then
+				local t="$(drawField $ty $tx true)"
+				if [[ "${redraw[$ty,$tx]}" != "$t" ]]; then
+					echo -n "$t"
+					redraw[$ty,$tx]="$t"
+					log="[$ty,$tx]"
 				fi
-		esac
+			else
+				drawField $ty $tx false
+			fi
+		done
+		$cursor || echo ""
 	done
+	$useStty && stty echo
+	# clear format
+	echo -en "\e[0m\e[$(($originY+10));0H\e[2K\n\e[2K$message\e[8m"
 }
 
-# Read column from user input
-# Params:
-#	$1	current player
-# Returns column (0-7) as status code
-function inputX() {
-	local i
-	while true; do
-		echo -en "\r                                                                     \r"
-		read -n 1 -p "$1" i
-		case $i in
-			[1-8] ) return $(( $i - 1 )) ;;
-			* )
-				if $warnings ; then
-					warn "Invalid input '$i' - please enter a character between '1' and '8' for the column!"
+# Read the next move coordinates
+# from keyboard (direct access or cursor keypad)
+# or use mouse input (if available)
+# Returns 0 on success and 1 on abort
+function inputCoord(){
+	inputY=-1
+	inputX=-1
+	local ret=0
+	local t
+	local tx
+	local ty
+	local oldHoverX=$hoverX
+	local oldHoverY=$hoverY
+	IFS=''
+	$useStty && stty echo
+	if $mouse ; then
+		echo -en "\e[?9h"
+	fi
+	while (( inputY < 0 || inputY >= 8 || inputX < 0  || inputX >= 8 )) ; do
+		read -sN1 a
+		case "$a" in
+			$'\e' )
+				if read -t0.1 -sN2 b ; then
+					case "$b" in
+						'[A' | 'OA' )
+							if (( --hoverY < 0 )) ; then
+								hoverY=0
+								bell
+							fi
+							;;
+						'[B' | 'OB' )
+							if (( ++hoverY > 7 )) ; then
+								hoverY=7
+								bell
+							fi
+							;;
+						'[C' | 'OC' )
+							if (( ++hoverX > 7 )) ; then
+								hoverX=7
+								bell
+							fi
+							;;
+						'[D' | 'OD' )
+							if (( --hoverX < 0 )) ; then
+								hoverX=0
+								bell
+							fi
+							;;
+						'[3' )
+							ret=1
+							bell
+							break
+							;;
+						'[5' )
+							(( hoverY == 0 )) && bell || hoverY=0
+							;;
+						'[6' )
+							(( hoverY == 7 )) && bell || hoverY=7
+							;;
+						'OH' )
+							(( hoverX == 0 )) && bell || hoverX=0
+							;;
+						'OF' )
+							(( hoverX == 7 )) && bell || hoverX=7
+							;;
+						'[M' )
+							read -sN1 t
+							read -sN1 tx
+							read -sN1 ty
+							ty=$(( `ord "$ty"` - 32 - $originY ))
+							if $ascii ; then
+								tx=$(( (`ord "$tx"` - 32 - $originX) / 3 ))
+							else
+								tx=$(( (`ord "$tx"` - 32 - $originX) / 2 ))
+							fi
+							if (( tx >= 0 && tx < 8 && ty >= 0 && ty < 8 )) ; then
+								inputY=$ty
+								inputX=$tx
+								hoverY=$ty
+								hoverX=$tx
+							else
+								ret=1
+								bell
+								break
+							fi
+							;;
+						* )
+							bell
+					esac
+				else
+					ret=1
+					bell
+					break
 				fi
+				;;
+			$'\t' | $'\n' | ' ' )
+				inputY=$hoverY
+				inputX=$hoverX
+				;;
+			'~' )
+				;;
+			$'\x7f' | $'\b' ) 
+				ret=1
+				bell
+				break
+				;;
+			[A-Ha-h] )
+				t=`ord $a`
+				(( t < 90 )) && inputY=$(( 72 - `ord $a` )) || inputY=$(( 104 - `ord $a` ))
+				hoverY=$inputY
+				;;
+			[1-8] )
+				inputX=$(( $a - 1 ))
+				hoverX=$inputX
+				;;
+			* )
+				bell
+				;; 
 		esac
+		if (( oldHoverX != hoverX || oldHoverY != hoverY )) ; then
+			oldHoverX=$hoverX
+			oldHoverY=$hoverY
+			draw
+		fi
 	done
+	if $mouse ; then
+		echo -en "\e[?9l"
+	fi
+	$useStty && stty -echo
+	return $ret
 }
 
 # Player input
@@ -1116,49 +1324,43 @@ function inputX() {
 function input() {
 	local player=$1
 	SECONDS=0
+	message="\e[1m`namePlayer $player`\e[0m: Move your figure"
 	while true ; do
 		selectedY=-1
 		selectedX=-1
+		title="It's `namePlayer $player`s turn"
 		draw >&3
-		message="(Waiting for `namePlayer $player`s turn)"
-		local imsg="$(echo -e "\e[1m`namePlayer $player`\e[0m: Move figure")"
-		while true ; do
-			inputY "$imsg" >&3
-			selectedY=$?
-			inputX "$imsg `ascii $(( 48 - $selectedY ))`" >&3
-			selectedX=$?
+		if inputCoord ; then
+			selectedY=$inputY
+			selectedX=$inputX
 			if (( ${field["$selectedY,$selectedX"]} == 0 )) ; then
 				warn "You cannot choose an empty field!" >&3
 			elif (( ${field["$selectedY,$selectedX"]} * $player  < 0 )) ; then
 				warn "You cannot choose your enemies figures!" >&3
 			else
-				break
+				send $player $selectedY $selectedX
+				local figName=$(nameFigure ${field[$selectedY,$selectedX]} )
+				message="\e[1m`namePlayer $player`\e[0m: Move your \e[3m$figName\e[0m at `coord $selectedY $selectedX` to"
+				draw >&3
+				if inputCoord ; then
+					selectedNewY=$inputY
+					selectedNewX=$inputX
+					if (( $selectedNewY == $selectedY && $selectedNewX == $selectedX )) ; then
+						warn "You didn't move..." >&3
+					elif (( ${field[$selectedNewY,$selectedNewX]} * $player > 0 )) ; then
+						warn "You cannot kill your own figures!" >&3
+					elif move $player ; then
+						title="`namePlayer $player` moved the \e[3m$figName\e[0m from `coord $selectedY $selectedX` to `coord $selectedNewY $selectedNewX` \e[2m(took him $SECONDS seconds)\e[0m"
+					send $player $selectedNewY $selectedNewX
+						return 0
+					else
+						warn "This move is not allowed!" >&3
+					fi
+					# Same position again --> revoke
+					send $player $selectedY $selectedX
+				fi
 			fi
-		done
-		draw >&3
-		send $player $selectedY $selectedX
-		local figName=$(nameFigure ${field[$selectedY,$selectedX]} )
-		local imsg="$imsg `coord $selectedY $selectedX` ($figName) to"
-		while true ; do
-			inputY "$imsg" >&3
-			selectedNewY=$?
-			inputX "$imsg `ascii $(( 48 - $selectedNewY ))`" >&3
-			selectedNewX=$?
-			if (( $selectedNewY == $selectedY && $selectedNewX == $selectedX )) ; then
-				warn "You didn't move..." >&3
-				sleep $sleep
-				break
-			elif (( ${field[$selectedNewY,$selectedNewX]} * $player > 0 )) ; then
-				warn "You cannot kill your own figures!" >&3
-			elif move $player ; then
-				message="`namePlayer $player` moved the $figName from `coord $selectedY $selectedX` to `coord $selectedNewY $selectedNewX` (took him $SECONDS seconds)."
-				send $player $selectedNewY $selectedNewX
-				return 0
-			else
-				warn "This move is not allowed!" >&3
-			fi
-		done
-		send $player $selectedNewY $selectedNewX
+		fi
 	done
 }
 
@@ -1171,22 +1373,22 @@ function ai() {
 	local player=$1
 	local val
 	SECONDS=0
+	title="It's `namePlayer $player`s turn"
+	message="Computer player \e[1m`namePlayer $player`\e[0m is thinking..."
 	draw >&3
-	message="(Waiting for `namePlayer $player`s turn)"
-	echo -e "Computer player \e[1m`namePlayer $player`\e[0m is thinking..." >&3
 	negamax $strength 0 255 $player
 	val=$?
 	local figName=$(nameFigure ${field[$selectedY,$selectedX]} )
+	message="\e[1m$( namePlayer $player )\e[0m moves the \e[3m$figName\e[0m at $(coord $selectedY $selectedX)..."
 	draw >&3
-	echo -e "\e[1m$( namePlayer $player )\e[0m moves the \e[3m$figName\e[0m at $(coord $selectedY $selectedX)..." >&3
 	send $player $selectedY $selectedX
 	sleep $sleep
 	if move $player ; then
+		message="\e[1m$( namePlayer $player )\e[0m moves the \e[3m$figName\e[0m at $(coord $selectedY $selectedX) to $(coord $selectedNewY $selectedNewX)"
 		draw >&3
-		echo -e "\e[1m$( namePlayer $player )\e[0m moves the \e[3m$figName\e[0m at $(coord $selectedY $selectedX) to $(coord $selectedNewY $selectedNewX)" >&3
 		send $player $selectedNewY $selectedNewX
 		sleep $sleep
-		message="$( namePlayer $player ) moved the $figName from $(coord $selectedY $selectedX) to $(coord $selectedNewY $selectedNewX) (took him $SECONDS seconds)."
+		title="$( namePlayer $player ) moved the $figName from $(coord $selectedY $selectedX) to $(coord $selectedNewY $selectedNewX) (took him $SECONDS seconds)."
 	else
 		error "AI produced invalid move - that should not hapen!"
 	fi
@@ -1236,17 +1438,17 @@ function receiveX() {
 function receive() {
 	local player=$remote
 	SECONDS=0
+	title="It's `namePlayer $player`s turn"
+	message="Network player \e[1m`namePlayer $player`\e[0m is thinking... (or sleeping?)"
 	draw >&3
-	message="(Waiting for `namePlayer $player`s turn)"
-	echo -e "Network player \e[1m`namePlayer $player`\e[0m is thinking... (or sleeping?)" >&3
 	while true ; do
 		receiveY
 		selectedY=$?
 		receiveX
 		selectedX=$?
-		draw >&3
 		local figName=$(nameFigure ${field[$selectedY,$selectedX]} )
-		echo -e "\e[1m$( namePlayer $player )\e[0m moves the \e[3m$figName\e[0m at $(coord $selectedY $selectedX)..." >&3
+		message"\e[1m$( namePlayer $player )\e[0m moves the \e[3m$figName\e[0m at $(coord $selectedY $selectedX)..."
+		draw >&3
 		receiveY
 		selectedNewY=$?
 		receiveX
@@ -1256,17 +1458,17 @@ function receive() {
 			selectedX=-1
 			selectedNewY=-1
 			selectedNewX=-1
+			message="\e[1m$( namePlayer $player )\e[0m revoked his move... okay, that'll be time consuming"
 			draw >&3
-			echo -e "\e[1m$( namePlayer $player )\e[0m revoked his move... okay, that'll be time consuming" >&3
 		else
 			break
 		fi
 	done
 	if move $player ; then
+		message="\e[1m$( namePlayer $player )\e[0m moves the \e[3m$figName\e[0m at $(coord $selectedY $selectedX) to $(coord $selectedNewY $selectedNewX)"
 		draw >&3
-		echo -e "\e[1m$( namePlayer $player )\e[0m moves the \e[3m$figName\e[0m at $(coord $selectedY $selectedX) to $(coord $selectedNewY $selectedNewX)" >&3
 		sleep $sleep
-		message="$( namePlayer $player ) moved the $figName from $(coord $selectedY $selectedX) to $(coord $selectedNewY $selectedNewX) (took him $SECONDS seconds)."
+		title="$( namePlayer $player ) moved the $figName from $(coord $selectedY $selectedX) to $(coord $selectedNewY $selectedNewX) (took him $SECONDS seconds)."
 	else
 		error "Received invalid move from network - that should not hapen!"
 	fi
@@ -1333,10 +1535,18 @@ function end() {
 	if [[ -n "$fifopipe" && -p "$fifopipe" ]] ; then
 		rm "$fifopipe"
 	fi
+	# disable mouse
+	if $mouse ; then
+		echo -en "\e[?9l"
+	fi
+	# enable input
+	stty echo
+	# restore screen
+	echo -en "\e[2J\e[?47l\e[?25h\e[u\e8"
 	# exit message
 	duration=$(( $( date +%s%N ) - $timestamp ))
 	seconds=$(( $duration / 1000000000 )) 
-	echo -e "\r\n\e[2mYou've wasted $seconds,$(( $duration -( $seconds * 1000000000 ))) seconds of your lifetime playing with a Bash script.\e[0m\n\n\e[1mSee you next time in Chess Bash!\e[0m\n"
+	echo -e "\r\n\e[2mYou've wasted $seconds,$(( $duration -( $seconds * 1000000000 ))) seconds of your lifetime playing with a Bash script.\e[0m\n"
 }
 
 # Exit trap
@@ -1356,8 +1566,8 @@ if (( $remote != 0 )) ; then
 	else
 		fifopipe="$fifopipeprefix.client"
 		piper="nc $remoteip $port"
-		echo -e "\e[1mWait!\e[0mPlease make sure the Host (the other Player) has started before continuing. Then press any key! \e[0m"
-		read -n 1
+		echo -e "\e[1mWait!\e[0mPlease make sure the Host (the other Player) has started before continuing.\e[0m"
+		anyKey
 	fi
 	if [ ! -e "$fifopipe" ] ; then
 		mkfifo "$fifopipe"
@@ -1367,13 +1577,11 @@ if (( $remote != 0 )) ; then
 	fi
 fi
 
-# print welcome message
-message=" Welcome to Chess`unicode 10048` Bash"
+# print welcome title
+title="Welcome to ChessBa.sh"
 if isAI 1 || isAI -1 ; then
-	message="$message - your room heater tool!"
+	title="$title - your room heater tool!"
 fi
-echo -e "\ec\n\e[1m$message\e[0m\n\e[2m written 2015 by Bernhard Heinloth\e[0m\n\n (Don't forget: this is just a proof-of-concept!)"
-sleep $sleep
 
 # permanent cache: import
 if [[ -n "$cache" && -f "$cache" ]] ; then
@@ -1429,9 +1637,10 @@ fi
 				input $p
 			fi
 		else
-			message="Game Over!"
+			title="Game Over!"
 			draw >&3
 			echo -e "\e[1m`namePlayer $(( $p * (-1) ))` wins the game!\e[1m\n" >&3
+			anyKey
 			exit 0
 		fi
 	done | $piper > "$fifopipe"
