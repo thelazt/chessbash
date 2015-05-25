@@ -48,9 +48,10 @@ aiPlayerB="R2D2"
 A=-1
 B=1
 originY=4
-originX=6
+originX=7
 hoverX=0
 hoverY=0
+hoverInit=false
 labelX=-2
 labelY=9
 type stty >/dev/null 2>&1 && useStty=true || useStty=false
@@ -60,14 +61,10 @@ while (( colorHover == colorPlayerA || colorHover == colorPlayerB )) ; do
 	(( colorHover++ ))
 done
 
-# Save screen
-echo -e "\e[0m\nWelcome to \e[1mChessBa.sh\e[0m - a Chess game written in Bash \e[2mby Bernhard Heinloth, 2015\e[0m\n\e7\e[s\e[?47h\e[?25l\e[2J\e[H"
-sleep 0.1
-
 # Check Unicode availbility
 # We do this using a trick: printing a special zero-length unicode char (http://en.wikipedia.org/wiki/Combining_Grapheme_Joiner) and retrieving the cursor position afterwards.
 # If the cursor position is at beginning, the terminal knows unicode. Otherwise it has printed some replacement character.
-echo -en "\r\n\u034f\e[6n" && read -sN6 -t0.1 x
+echo -en "\e7\e[s\e[H\r\xcd\x8f\e[6n" && read -sN6 -t0.1 x
 if [[ "${x:4:1}" == "1" ]] ; then
 	ascii=false
 	unicodelabels=true
@@ -75,6 +72,7 @@ else
 	ascii=true
 	unicodelabels=false
 fi
+echo -e "\e[u\e8\e[2K\r\e[0m\nWelcome to \e[1mChessBa.sh\e[0m - a Chess game written in Bash \e[2mby Bernhard Heinloth, 2015\e[0m\n"
 
 # Print version information
 function version() {
@@ -95,7 +93,11 @@ function anyKey(){
 #	$1	message
 # (no return value, exit game)
 function error() {
-	echo -e "\e[0;1;41m $1 \e[0m\n\e[3m(Script exit)\e[0m" >&2
+	if $color ; then
+		echo -e "\e[0;1;41m $1 \e[0m\n\e[3m(Script exit)\e[0m" >&2
+	else
+		echo -e "\e[0;1;7m $1 \e[0m\n\e[3m(Script exit)\e[0m" >&2
+	fi
 	anyKey
 	exit 1
 }
@@ -117,7 +119,11 @@ function require() {
 #	$1	String with number
 # Return 0 if valid, 1 otherwise
 function validNumber() {
-	[[ "$1" =~ ^[0-9]+$ ]] && return 0 || return 1
+	if [[ "$1" =~ ^[0-9]+$ ]] ; then
+		return 0
+	else
+		return 1
+	fi
 }
 
 # Validate a port string
@@ -126,7 +132,11 @@ function validNumber() {
 #	$1	String with port number
 # Return 0 if valid, 1 otherwise
 function validPort() {
-	validNumber "$1" && (( "$1" < 65536 && "$1" > 1023 )) && return 0 || return 1
+	if validNumber "$1" && (( 1 < 65536 && 1 > 1023 )) ; then
+		return 0
+	else
+		return 1
+	fi
 }
 
 # Validate an IP v4 or v6 address
@@ -135,7 +145,11 @@ function validPort() {
 #	$1	IP address to validate
 # Return 0 if valid, 1 otherwise
 function validIP() {
-	[[ "$1" =~ ^(((25[0-5]|2[0-4][0-9]|[01]?[0-9][0-9]?)\.(25[0-5]|2[0-4][0-9]|[01]?[0-9][0-9]?)\.(25[0-5]|2[0-4][0-9]|[01]?[0-9][0-9]?)\.(25[0-5]|2[0-4][0-9]|[01]?[0-9][0-9]?))|((([0-9A-Fa-f]{1,4}:){7}([0-9A-Fa-f]{1,4}|:))|(([0-9A-Fa-f]{1,4}:){6}(:[0-9A-Fa-f]{1,4}|((25[0-5]|2[0-4]\d|1\d\d|[1-9]?\d)(\.(25[0-5]|2[0-4]\d|1\d\d|[1-9]?\d)){3})|:))|(([0-9A-Fa-f]{1,4}:){5}(((:[0-9A-Fa-f]{1,4}){1,2})|:((25[0-5]|2[0-4]\d|1\d\d|[1-9]?\d)(\.(25[0-5]|2[0-4]\d|1\d\d|[1-9]?\d)){3})|:))|(([0-9A-Fa-f]{1,4}:){4}(((:[0-9A-Fa-f]{1,4}){1,3})|((:[0-9A-Fa-f]{1,4})?:((25[0-5]|2[0-4]\d|1\d\d|[1-9]?\d)(\.(25[0-5]|2[0-4]\d|1\d\d|[1-9]?\d)){3}))|:))|(([0-9A-Fa-f]{1,4}:){3}(((:[0-9A-Fa-f]{1,4}){1,4})|((:[0-9A-Fa-f]{1,4}){0,2}:((25[0-5]|2[0-4]\d|1\d\d|[1-9]?\d)(\.(25[0-5]|2[0-4]\d|1\d\d|[1-9]?\d)){3}))|:))|(([0-9A-Fa-f]{1,4}:){2}(((:[0-9A-Fa-f]{1,4}){1,5})|((:[0-9A-Fa-f]{1,4}){0,3}:((25[0-5]|2[0-4]\d|1\d\d|[1-9]?\d)(\.(25[0-5]|2[0-4]\d|1\d\d|[1-9]?\d)){3}))|:))|(([0-9A-Fa-f]{1,4}:){1}(((:[0-9A-Fa-f]{1,4}){1,6})|((:[0-9A-Fa-f]{1,4}){0,4}:((25[0-5]|2[0-4]\d|1\d\d|[1-9]?\d)(\.(25[0-5]|2[0-4]\d|1\d\d|[1-9]?\d)){3}))|:))|(:(((:[0-9A-Fa-f]{1,4}){1,7})|((:[0-9A-Fa-f]{1,4}){0,5}:((25[0-5]|2[0-4]\d|1\d\d|[1-9]?\d)(\.(25[0-5]|2[0-4]\d|1\d\d|[1-9]?\d)){3}))|:))))$ ]] && return 0 || return 1
+	if [[ "$1" =~ ^(((25[0-5]|2[0-4][0-9]|[01]?[0-9][0-9]?)\.(25[0-5]|2[0-4][0-9]|[01]?[0-9][0-9]?)\.(25[0-5]|2[0-4][0-9]|[01]?[0-9][0-9]?)\.(25[0-5]|2[0-4][0-9]|[01]?[0-9][0-9]?))|((([0-9A-Fa-f]{1,4}:){7}([0-9A-Fa-f]{1,4}|:))|(([0-9A-Fa-f]{1,4}:){6}(:[0-9A-Fa-f]{1,4}|((25[0-5]|2[0-4]\d|1\d\d|[1-9]?\d)(\.(25[0-5]|2[0-4]\d|1\d\d|[1-9]?\d)){3})|:))|(([0-9A-Fa-f]{1,4}:){5}(((:[0-9A-Fa-f]{1,4}){1,2})|:((25[0-5]|2[0-4]\d|1\d\d|[1-9]?\d)(\.(25[0-5]|2[0-4]\d|1\d\d|[1-9]?\d)){3})|:))|(([0-9A-Fa-f]{1,4}:){4}(((:[0-9A-Fa-f]{1,4}){1,3})|((:[0-9A-Fa-f]{1,4})?:((25[0-5]|2[0-4]\d|1\d\d|[1-9]?\d)(\.(25[0-5]|2[0-4]\d|1\d\d|[1-9]?\d)){3}))|:))|(([0-9A-Fa-f]{1,4}:){3}(((:[0-9A-Fa-f]{1,4}){1,4})|((:[0-9A-Fa-f]{1,4}){0,2}:((25[0-5]|2[0-4]\d|1\d\d|[1-9]?\d)(\.(25[0-5]|2[0-4]\d|1\d\d|[1-9]?\d)){3}))|:))|(([0-9A-Fa-f]{1,4}:){2}(((:[0-9A-Fa-f]{1,4}){1,5})|((:[0-9A-Fa-f]{1,4}){0,3}:((25[0-5]|2[0-4]\d|1\d\d|[1-9]?\d)(\.(25[0-5]|2[0-4]\d|1\d\d|[1-9]?\d)){3}))|:))|(([0-9A-Fa-f]{1,4}:){1}(((:[0-9A-Fa-f]{1,4}){1,6})|((:[0-9A-Fa-f]{1,4}){0,4}:((25[0-5]|2[0-4]\d|1\d\d|[1-9]?\d)(\.(25[0-5]|2[0-4]\d|1\d\d|[1-9]?\d)){3}))|:))|(:(((:[0-9A-Fa-f]{1,4}){1,7})|((:[0-9A-Fa-f]{1,4}){0,5}:((25[0-5]|2[0-4]\d|1\d\d|[1-9]?\d)(\.(25[0-5]|2[0-4]\d|1\d\d|[1-9]?\d)){3}))|:))))$ ]] ; then
+		return 0
+	else
+		return 1
+	fi
 }
 
 # Named ANSI colors
@@ -164,9 +178,17 @@ function getColor() {
 # Return status code 0 if ai player
 function isAI() {
 	if (( $1 < 0 )) ; then
-		[ "${namePlayerA,,}" == "${aikeyword,,}" ] && return 0 || return 1
+		if [[ "${namePlayerA,,}" == "${aikeyword,,}" ]] ; then
+			return 0
+		else
+			return 1
+		fi
 	else
-		[ "${namePlayerB,,}" == "${aikeyword,,}" ]  && return 0 || return 1
+		if [[ "${namePlayerB,,}" == "${aikeyword,,}" ]] ; then
+			return 0
+		else
+			return 1
+		fi
 	fi
 }
 
@@ -279,7 +301,7 @@ while getopts ":a:A:b:B:c:P:s:t:w:dghilmMnpvVz" options; do
 				exit 1
 			fi
 			;;
-		c )	if [[ -z "$OPTARG" ]] ;then
+		c )	if [[ -z "$OPTARG" ]] ; then
 				echo "No valid path for cache file!" >&2
 				exit 1
 			else
@@ -573,6 +595,11 @@ if $guiconfig ; then
 	dlgconfig
 fi
 
+# Save screen
+if $cursor ; then
+	echo -e "\e7\e[s\e[?47h\e[?25l\e[2J\e[H"
+fi
+
 # lookup tables
 declare -A cacheLookup
 declare -A cacheFlag
@@ -639,13 +666,27 @@ function coord() {
 # Writes name to stdout
 function namePlayer() {
 	if (( $1 < 0 )) ; then
-		$color && echo -en "\e[3${colorPlayerA}m"
-		isAI $1 && echo -n $aiPlayerA || echo -n $namePlayerA
+		if $color ; then
+			echo -en "\e[3${colorPlayerA}m"
+		fi
+		if isAI $1 ; then
+			echo -n $aiPlayerA
+		else
+			echo -n $namePlayerA
+		fi
 	else
-		$color && echo -en "\e[3${colorPlayerB}m"
-		isAI $1 && echo -n $aiPlayerB || echo -n $namePlayerB
+		if $color ; then
+			echo -en "\e[3${colorPlayerB}m"
+		fi
+		if isAI $1 ; then
+			echo -n $aiPlayerB
+		else
+			echo -n $namePlayerB
+		fi
 	fi
-	$color && echo -en "\e[0m"
+	if $color ; then
+		echo -en "\e[0m"
+	fi
 }
 
 # Get name of figure
@@ -671,7 +712,7 @@ function hasKing() {
 	local y
 	for (( y=0;y<8;y++ )) ; do
 		for (( x=0;x<8;x++ )) ; do
-			if (( ${field[$y,$x]} * $player == 6 )) ; then
+			if (( ${field[$y,$x]} * player == 6 )) ; then
 				return 0
 			fi
 		done
@@ -695,34 +736,34 @@ function canMove() {
 	local player=$5
 
 	local i
-	if (( $fromY < 0 || $fromY >= 8 || $fromX < 0 || $fromX >= 8 || $toY < 0 || $toY >= 8 || $toX < 0 || $toX >= 8 || ( $fromY == $toY && $fromX == $toX ) )) ; then
+	if (( fromY < 0 || fromY >= 8 || fromX < 0 || fromX >= 8 || toY < 0 || toY >= 8 || toX < 0 || toX >= 8 || ( fromY == toY && fromX == toX ) )) ; then
 		return 1
 	fi
 	local from=${field[$fromY,$fromX]}
 	local to=${field[$toY,$toX]}
 	local fig=$(( $from * $player ))
-	if (( $from == 0 || $from*$player < 0 || $to*$player > 0 || $player*$player != 1 )) ; then
+	if (( from == 0 || from * player < 0 || to * player > 0 || player * player != 1 )) ; then
 		return 1
 	# pawn
-	elif (( $fig == 1 )) ; then 
-		if (( $fromX == $toX && $to == 0 && ( $toY - $fromY == $player || ( $toY - $fromY == 2 * $player && ${field["$(($player + $fromY)),$fromX"]} == 0 && $fromY == ( $player > 0 ? 1 : 6 ) ) ) )) ; then
+	elif (( fig == 1 )) ; then 
+		if (( fromX == toX && to == 0 && ( toY - fromY == player || ( toY - fromY == 2 * player && ${field["$((player + fromY)),$fromX"]} == 0 && fromY == ( player > 0 ? 1 : 6 ) ) ) )) ; then
 				return 0
 			else
-				return $(( ! ( ($fromX - $toX) * ($fromX - $toX) == 1 && $toY - $fromY == $player && $to * $player < 0 ) )) 
+				return $(( ! ( (fromX - toX) * (fromX - toX) == 1 && toY - fromY == player && to * player < 0 ) )) 
 		fi
 	# queen, rock and bishop
-	elif (( $fig == 5 || $fig == 4  || $fig == 3 )) ; then
+	elif (( fig == 5 || fig == 4  || fig == 3 )) ; then
 		# rock - and queen
-		if (( $fig != 3 )) ; then 
-			if (( $fromX == $toX )) ; then
-				for (( i = ( $fromY < $toY ? $fromY : $toY ) + 1 ; i < ( fromY > toY ? fromY : toY ) ; i++ )) ; do
+		if (( fig != 3 )) ; then 
+			if (( fromX == toX )) ; then
+				for (( i = ( fromY < toY ? fromY : toY ) + 1 ; i < ( fromY > toY ? fromY : toY ) ; i++ )) ; do
 					if (( ${field[$i,$fromX]} != 0 )) ; then
 						return 1
 					fi
 				done
 				return 0
-			elif (( $fromY == $toY )) ; then
-				for (( i = ( $fromX < $toX ? $fromX : $toX ) + 1 ; i < ( fromX > toX ? fromX : toX ) ; i++ )) ; do
+			elif (( fromY == toY )) ; then
+				for (( i = ( fromX < toX ? fromX : toX ) + 1 ; i < ( fromX > toX ? fromX : toX ) ; i++ )) ; do
 						if (( ${field[$fromY,$i]} != 0 )) ; then
 							return 1
 						fi
@@ -793,7 +834,7 @@ function negamax() {
 	fi
 	# lost own king?
 	if ! hasKing $player ; then
-		cacheLookup[$hash]=1
+		cacheLookup[$hash]=$(( $strength - $depth + 1 ))
 		cacheDepth[$hash]=$depth
 		cacheFlag[$hash]=0
 		return $(( $strength - $depth + 1 ))
@@ -1054,37 +1095,57 @@ function drawField(){
 	if $3 ; then
 		local yScr=$(( $y + $originY ))
 		local xScr=$(( $x * 2 + $originX ))
-		if $ascii || (( x == labelX )) ; then
+		if $ascii && (( x >= 0 )) ; then
 			local xScr=$(( $x * 3 + $originX ))
 		fi
 		echo -en "\e[${yScr};${xScr}H"
 	fi
 	# draw vertical labels
 	if (( x==labelX && y >= 0 && y < 8)) ; then
-		if (( hoverY == y )) ; then
-			echo -en "\e[3${colorHover}m"
+		if $hoverInit && (( hoverY == y )) ; then
+			if $color ; then
+				echo -en "\e[3${colorHover}m"
+			else
+				echo -en "\e[4m"
+			fi
 		elif (( selectedY == y )) ; then
-			(( ${field[$selectedY,$selectedX]} < 0 )) && echo -en "\e[3${colorPlayerA}m" || echo -en "\e[3${colorPlayerB}m"
+			if ! $color ; then 
+				echo -en "\e[2m"
+			elif (( ${field[$selectedY,$selectedX]} < 0 )) ; then
+				echo -en "\e[3${colorPlayerA}m"
+			else
+				echo -en "\e[3${colorPlayerB}m"
+			fi
 		fi
 		# line number (alpha numeric)
-		$unicodelabels && echo -en " $(unicode e2 92 bd -$y) "  || echo -en "  \x$((48 - $y))"
+		$unicodelabels && echo -en "$(unicode e2 92 bd -$y) " || echo -en " \x$((48 - $y))"
 		# clear format
 	# draw horizontal labels
 	elif (( x>=0 && y==labelY )) ; then
-		if (( hoverX == x )) ; then
-			echo -en "\e[3${colorHover}m"
+		if $hoverInit && (( hoverX == x )) ; then
+			if $color ; then
+				echo -en "\e[3${colorHover}m"
+			else
+				echo -en "\e[4m"
+			fi
 		elif (( selectedX == x )) ; then
-			(( ${field[$selectedY,$selectedX]} < 0 )) && echo -en "\e[3${colorPlayerA}m" || echo -en "\e[3${colorPlayerB}m"
+			if ! $color ; then 
+				echo -en "\e[2m"
+			elif (( ${field[$selectedY,$selectedX]} < 0 )) ; then
+				echo -en "\e[3${colorPlayerA}m"
+			else
+				echo -en "\e[3${colorPlayerB}m"
+			fi
 		else
 			echo -en "\e[0m"
 		fi
 		if $unicodelabels ; then
-			echo -en "$(unicode e2 9e 80 $x ) "
+			echo -en "$(unicode e2 9e 80 $x )\e[0m "
 		else
 			if $ascii ; then
 				echo -n " "
 			fi
-			echo -en "\x$((31 + $x)) "
+			echo -en "\x$((31 + $x))\e[0m "
 		fi
 	# draw field
 	elif (( y >=0 && y < 8 && x >= 0 && x < 8 )) ; then
@@ -1100,8 +1161,14 @@ function drawField(){
 			$color && echo -en "\e[40m"
 		fi
 		# background
-		if (( hoverX == x && hoverY == y )) ; then
-			$black && echo -en "\e[4${colorHover};10${colorHover}m" || echo -en "\e[4${colorHover}m"
+		if $hoverInit && (( hoverX == x && hoverY == y )) ; then
+			if ! $color ; then
+				echo -en "\e[4m"
+			elif $black ; then
+				echo -en "\e[4${colorHover};10${colorHover}m"
+			else
+				echo -en "\e[4${colorHover}m"
+			fi
 		elif (( $selectedX != -1 && $selectedY != -1 )) ; then
 			local selectedPlayer=$(( ${field[$selectedY,$selectedX]} > 0 ? 1 : -1 ))
 			if (( $selectedX == $x && $selectedY == $y )) ; then
@@ -1146,7 +1213,7 @@ function drawField(){
 			fi
 		fi
 	# three empty chars
-	elif (( x == labelX )) || $ascii ; then
+	elif $ascii && (( x >= 0 )) ; then
 		echo -n "   "
 	# otherwise: two empty chars (on unicode boards)
 	else
@@ -1209,24 +1276,28 @@ function inputCoord(){
 				if read -t0.1 -sN2 b ; then
 					case "$b" in
 						'[A' | 'OA' )
+							hoverInit=true
 							if (( --hoverY < 0 )) ; then
 								hoverY=0
 								bell
 							fi
 							;;
 						'[B' | 'OB' )
+							hoverInit=true
 							if (( ++hoverY > 7 )) ; then
 								hoverY=7
 								bell
 							fi
 							;;
 						'[C' | 'OC' )
+							hoverInit=true
 							if (( ++hoverX > 7 )) ; then
 								hoverX=7
 								bell
 							fi
 							;;
 						'[D' | 'OD' )
+							hoverInit=true
 							if (( --hoverX < 0 )) ; then
 								hoverX=0
 								bell
@@ -1238,16 +1309,36 @@ function inputCoord(){
 							break
 							;;
 						'[5' )
-							(( hoverY == 0 )) && bell || hoverY=0
+							hoverInit=true
+							if (( hoverY == 0 )) ; then
+								bell
+							else
+								hoverY=0
+							fi
 							;;
 						'[6' )
-							(( hoverY == 7 )) && bell || hoverY=7
+							hoverInit=true
+							if (( hoverY == 7 )) ; then
+								bell
+							else
+								hoverY=7
+							fi
 							;;
 						'OH' )
-							(( hoverX == 0 )) && bell || hoverX=0
+							hoverInit=true
+							if (( hoverX == 0 )) ; then
+								bell
+							else
+								hoverX=0
+							fi
 							;;
 						'OF' )
-							(( hoverX == 7 )) && bell || hoverX=7
+							hoverInit=true
+							if (( hoverX == 7 )) ; then
+								bell
+							else
+								hoverX=7
+							fi
 							;;
 						'[M' )
 							read -sN1 t
@@ -1280,8 +1371,10 @@ function inputCoord(){
 				fi
 				;;
 			$'\t' | $'\n' | ' ' )
-				inputY=$hoverY
-				inputX=$hoverX
+				if $hoverInit ; then
+					inputY=$hoverY
+					inputX=$hoverX
+				fi
 				;;
 			'~' )
 				;;
@@ -1303,7 +1396,7 @@ function inputCoord(){
 				bell
 				;; 
 		esac
-		if (( oldHoverX != hoverX || oldHoverY != hoverY )) ; then
+		if $hoverInit && (( oldHoverX != hoverX || oldHoverY != hoverY )) ; then
 			oldHoverX=$hoverX
 			oldHoverY=$hoverY
 			draw
@@ -1542,7 +1635,9 @@ function end() {
 	# enable input
 	stty echo
 	# restore screen
-	echo -en "\e[2J\e[?47l\e[?25h\e[u\e8"
+	if $cursor ; then
+		echo -en "\e[2J\e[?47l\e[?25h\e[u\e8"
+	fi
 	# exit message
 	duration=$(( $( date +%s%N ) - $timestamp ))
 	seconds=$(( $duration / 1000000000 )) 
@@ -1638,8 +1733,8 @@ fi
 			fi
 		else
 			title="Game Over!"
+			message="\e[1m`namePlayer $(( $p * (-1) ))` wins the game!\e[1m\n"
 			draw >&3
-			echo -e "\e[1m`namePlayer $(( $p * (-1) ))` wins the game!\e[1m\n" >&3
 			anyKey
 			exit 0
 		fi
