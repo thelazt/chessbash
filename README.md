@@ -4,6 +4,7 @@ A simple chess game written in a bash script.
 
 Screenshot
 ----------
+Running in GNOME-Terminal on Ubuntu 14.04 with default configuration - just increased font size.
 ![ChessBa.sh in action](screenshot.png?raw=true)
 
 Features

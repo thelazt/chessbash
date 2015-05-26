@@ -1803,3 +1803,4 @@ fi
 		error "The game ended unexpected!"
 	fi
 } 3>&1
+
