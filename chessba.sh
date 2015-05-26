@@ -107,7 +107,7 @@ function error() {
 # Params:
 #	$1	name of executable
 function require() {
-	type $1 >/dev/null 2>&1 ||
+	type "$1" >/dev/null 2>&1 ||
 		{
 			echo "This requires $1 but it is not available on your system. Aborting." >&2
 			exit 1
@@ -215,7 +215,7 @@ function help {
 	echo -e "    -P \e[2mNUMBER\e[0m  Set port for network connection (Default: \e[2m$port\e[0m)"
 	echo -e "\e[1;33mAttention:\e[0;33m On a network game the person controlling the first player / A"
 	echo -e "(using \"\e[2;33m-b $remotekeyword\e[0;33m\" as parameter) must start the game first!\e[0m"
-	echo 
+	echo
 	echo -e "\e[4mCache management\e[0m"
 	echo -e "    -c \e[2mFILE\e[0m    Makes cache permanent - load and store calculated moves"
 	echo "    -z         Compress cache file (only to be used with -c, requires gzip)"
@@ -450,7 +450,8 @@ if $guiconfig ; then
 				"$option_mainmenu_playerA" )
 					typeOfPlayerA > /dev/null
 					local type=$?
-					local dlg_player=$(dlg --nocancel --default-item "${option_player[$type]}" --menu "$option_mainmenu_playerA" $dlgh $dlgw 0 "${option_player[0]}" "$( isAI $A && echo "$option_mainmenu_playerA" || echo "$namePlayerA" )" "${option_player[1]}" "with AI (of strength $strength)" "${option_player[2]}" "Connect to Server $remoteip" )
+					local dlg_player
+					dlg_player=$(dlg --nocancel --default-item "${option_player[$type]}" --menu "$option_mainmenu_playerA" $dlgh $dlgw 0 "${option_player[0]}" "$( isAI $A && echo "$option_mainmenu_playerA" || echo "$namePlayerA" )" "${option_player[1]}" "with AI (of strength $strength)" "${option_player[2]}" "Connect to Server $remoteip" )
 					case "$dlg_player" in
 						# Human --> get Name
 						*"${option_player[0]}"* )
@@ -464,7 +465,11 @@ if $guiconfig ; then
 							namePlayerA=$aikeyword
 							local dlg_strength
 							if dlg_strength=$(dlg --inputbox "Strength of Computer" $dlgh $dlgw  "$strength") ; then
-								validNumber "$dlg_strength" && strength=$dlg_strength || dlgerror "Your input '$dlg_strength' is not a valid number!"
+								if validNumber "$dlg_strength" ; then
+									strength=$dlg_strength
+								else
+									dlgerror "Your input '$dlg_strength' is not a valid number!"
+								fi
 							fi
 							;;
 						# Network --> get Server and Port
@@ -476,7 +481,11 @@ if $guiconfig ; then
 									remoteip="$dlg_remoteip"
 									local dlg_networkport
 									if dlg_networkport=$(dlg --inputbox "Server Port (non privileged)" $dlgh $dlgw "$port") ; then
-										 validPort "$dlg_networkport" && port=$dlg_networkport || dlgerror "Your input '$dlg_remoteip' is not a valid Port!"
+										 if validPort "$dlg_networkport" ; then
+											port=$dlg_networkport
+										else
+											dlgerror "Your input '$dlg_remoteip' is not a valid Port!"
+										fi
 									fi
 								else
 									dlgerror "Your input '$dlg_remoteip' is no valid IP address!"
@@ -493,7 +502,7 @@ if $guiconfig ; then
 							colorlist+=" ${colors[$c]^} figures"
 						done
 						local dlg_player_color
-						if dlg_player_color=$(dlg --nocancel --default-item "${colors[$colorPlayerA]^}" --menu "Color of $option_mainmenu_playerA" $dlgh $dlgw 0 $colorlist) ; then
+						if dlg_player_color=$(dlg --nocancel --default-item "${colors[$colorPlayerA]^}" --menu "Color of $option_mainmenu_playerA" $dlgh $dlgw 0 "$colorlist") ; then
 							getColor "$dlg_player_color" || colorPlayerA=$?
 						fi
 					fi
@@ -503,7 +512,8 @@ if $guiconfig ; then
 				"$option_mainmenu_playerB" )
 					typeOfPlayerB > /dev/null
 					local type=$?
-					local dlg_player=$(dlg --nocancel --default-item "${option_player[$type]}" --menu "$option_mainmenu_playerB" $dlgh $dlgw 0 "${option_player[0]}" "$( isAI $B && echo "$option_mainmenu_playerB" || echo "$namePlayerB" )" "${option_player[1]}" "with AI (of strength $strength)" "${option_player[2]}" "Wait for connections on port $port" )
+					local dlg_player
+					dlg_player=$(dlg --nocancel --default-item "${option_player[$type]}" --menu "$option_mainmenu_playerB" $dlgh $dlgw 0 "${option_player[0]}" "$( isAI $B && echo "$option_mainmenu_playerB" || echo "$namePlayerB" )" "${option_player[1]}" "with AI (of strength $strength)" "${option_player[2]}" "Wait for connections on port $port" )
 					case "$dlg_player" in
 						# Human --> get Name
 						*"${option_player[0]}"* )
@@ -517,7 +527,11 @@ if $guiconfig ; then
 							namePlayerB=$aikeyword
 							local dlg_strength
 							if dlg_strength=$(dlg --inputbox "Strength of Computer" $dlgh $dlgw  "$strength") ; then
-								validNumber "$dlg_strength" && strength=$dlg_strength || dlgerror "Your input '$dlg_strength' is not a valid number!"
+								if validNumber "$dlg_strength" ; then
+									strength=$dlg_strength
+								else
+									dlgerror "Your input '$dlg_strength' is not a valid number!"
+								fi
 							fi
 							;;
 						# Network --> get Server and Port
@@ -525,7 +539,11 @@ if $guiconfig ; then
 							remote=1
 							local dlg_networkport
 							if dlg_networkport=$(dlg --inputbox "Server Port (non privileged)" $dlgh $dlgw "$port") ; then
-								 validPort "$dlg_networkport" && port=$dlg_networkport || dlgerror "Your input '$dlg_remoteip' is not a valid Port!"
+								 if validPort "$dlg_networkport" ; then
+									port=$dlg_networkport
+								else
+									dlgerror "Your input '$dlg_remoteip' is not a valid Port!"
+								fi
 							fi
 							;;
 					esac
@@ -537,7 +555,7 @@ if $guiconfig ; then
 							colorlist+=" ${colors[$c]^} figures"
 						done
 						local dlg_player_color
-						if dlg_player_color=$(dlg --nocancel --default-item "${colors[$colorPlayerB]^}" --menu "Color of $option_mainmenu_playerB" $dlgh $dlgw 0 $colorlist) ; then
+						if dlg_player_color=$(dlg --nocancel --default-item "${colors[$colorPlayerB]^}" --menu "Color of $option_mainmenu_playerB" $dlgh $dlgw 0 "$colorlist") ; then
 							getColor "$dlg_player_color" || colorPlayerB=$?
 						fi
 					fi
@@ -569,7 +587,8 @@ if $guiconfig ; then
 						# Mouse support
 						[[ "$dlg_settings" == *"${option_settings[3]}"* ]] && mouse=true || mouse=false
 						# AI Cache
-						if [[ "$dlg_settings" == *"${option_settings[4]}"* ]] && local dlg_cache=$(dlg --inputbox "Cache file:" $dlgh $dlgw "$([[ -z "$cache" ]] && echo "$(pwd)/chessbash.cache" || echo "$cache")") && [[ -n "$dlg_cache" ]] ; then
+						local dlg_cache
+						if [[ "$dlg_settings" == *"${option_settings[4]}"* ]] && dlg_cache=$(dlg --inputbox "Cache file:" $dlgh $dlgw "$([[ -z "$cache" ]] && echo "$(pwd)/chessbash.cache" || echo "$cache")") && [[ -n "$dlg_cache" ]] ; then
 							cache="$dlg_cache"
 							type gzip >/dev/null 2>&1 && type zcat >/dev/null 2>&1 && dlg --yesno "Use GZip compression for Cache?" $dlgh $dlgw && cachecompress=true || cachecompress=false
 						else
@@ -578,7 +597,11 @@ if $guiconfig ; then
 						# Waiting time (ask always)
 						local dlg_sleep
 						if dlg_sleep=$(dlg --inputbox "How long should every message be displayed (in seconds)?" $dlgh $dlgw "$sleep") ; then
-							 validNumber "$dlg_sleep" && sleep=$dlg_sleep || dlgerror "Your input '$dlg_sleep' is not a valid number!"
+							if validNumber "$dlg_sleep" ; then
+								sleep=$dlg_sleep
+							else
+								dlgerror "Your input '$dlg_sleep' is not a valid number!"
+							fi
 						fi
 					fi
 					;;
@@ -607,7 +630,7 @@ declare -A cacheDepth
 
 # associative arrays are faster than numeric ones and way more readable
 declare -A redraw
-if $coursor ; then
+if $cursor ; then
 	for (( y=0; y<10; y++ )) ; do
 		for (( x=-2; x<8; x++ )) ; do
 			redraw[$y,$x]=""
@@ -669,19 +692,19 @@ function namePlayer() {
 		if $color ; then
 			echo -en "\e[3${colorPlayerA}m"
 		fi
-		if isAI $1 ; then
-			echo -n $aiPlayerA
+		if isAI "$1" ; then
+			echo -n "$aiPlayerA"
 		else
-			echo -n $namePlayerA
+			echo -n "$namePlayerA"
 		fi
 	else
 		if $color ; then
 			echo -en "\e[3${colorPlayerB}m"
 		fi
-		if isAI $1 ; then
-			echo -n $aiPlayerB
+		if isAI "$1" ; then
+			echo -n "$aiPlayerB"
 		else
-			echo -n $namePlayerB
+			echo -n "$namePlayerB"
 		fi
 	fi
 	if $color ; then
@@ -695,9 +718,9 @@ function namePlayer() {
 # Writes name to stdout
 function nameFigure() {
 	if (( $1 < 0 )) ; then
-		echo -n ${figNames[$1*(-1)]}
+		echo -n "${figNames[$1*(-1)]}"
 	else
-		echo -n ${figNames[$1]}
+		echo -n "${figNames[$1]}"
 	fi
 }
 
@@ -741,20 +764,20 @@ function canMove() {
 	fi
 	local from=${field[$fromY,$fromX]}
 	local to=${field[$toY,$toX]}
-	local fig=$(( $from * $player ))
+	local fig=$(( from * player ))
 	if (( from == 0 || from * player < 0 || to * player > 0 || player * player != 1 )) ; then
 		return 1
 	# pawn
-	elif (( fig == 1 )) ; then 
+	elif (( fig == 1 )) ; then
 		if (( fromX == toX && to == 0 && ( toY - fromY == player || ( toY - fromY == 2 * player && ${field["$((player + fromY)),$fromX"]} == 0 && fromY == ( player > 0 ? 1 : 6 ) ) ) )) ; then
 				return 0
 			else
-				return $(( ! ( (fromX - toX) * (fromX - toX) == 1 && toY - fromY == player && to * player < 0 ) )) 
+				return $(( ! ( (fromX - toX) * (fromX - toX) == 1 && toY - fromY == player && to * player < 0 ) ))
 		fi
 	# queen, rock and bishop
 	elif (( fig == 5 || fig == 4  || fig == 3 )) ; then
 		# rock - and queen
-		if (( fig != 3 )) ; then 
+		if (( fig != 3 )) ; then
 			if (( fromX == toX )) ; then
 				for (( i = ( fromY < toY ? fromY : toY ) + 1 ; i < ( fromY > toY ? fromY : toY ) ; i++ )) ; do
 					if (( ${field[$i,$fromX]} != 0 )) ; then
@@ -772,12 +795,12 @@ function canMove() {
 			fi
 		fi
 		# bishop - and queen
-		if (( $fig != 4 )) ; then
-			if (( ( $fromY - $toY ) * ( $fromY - $toY ) != ( $fromX - $toX ) * ( $fromX - $toX ) )) ; then
+		if (( fig != 4 )) ; then
+			if (( ( fromY - toY ) * ( fromY - toY ) != ( fromX - toX ) * ( fromX - toX ) )) ; then
 				return 1
 			fi
-			for (( i = 1 ; i < ( $fromY > toY ? $fromY - $toY : $toY - $fromY) ; i++ )) ; do
-				if (( ${field[$(($fromY + $i * ($toY - $fromY > 0 ? 1 : -1 ) )),$(( $fromX + $i * ($toX - $fromX > 0 ? 1 : -1 ) ))]} != 0 )) ; then
+			for (( i = 1 ; i < ( $fromY > toY ? fromY - toY : toY - fromY) ; i++ )) ; do
+				if (( ${field[$((fromY + i * (toY - fromY > 0 ? 1 : -1 ) )),$(( fromX + i * (toX - fromX > 0 ? 1 : -1 ) ))]} != 0 )) ; then
 					return 1
 				fi
 			done
@@ -786,11 +809,11 @@ function canMove() {
 		# nothing found? wrong move.
 		return 1
 	# knight
-	elif (( $fig == 2 )) ; then 
-		return $(( ! ( ( ( $fromY - $toY == 2 || $fromY - $toY == -2) && ( $fromX - $toX == 1 || $fromX - $toX == -1 ) ) || ( ( $fromY - $toY == 1 || $fromY - $toY == -1) && ( $fromX - $toX == 2 || $fromX - $toX == -2 ) ) ) ))
+	elif (( fig == 2 )) ; then
+		return $(( ! ( ( ( fromY - toY == 2 || fromY - toY == -2) && ( fromX - toX == 1 || fromX - toX == -1 ) ) || ( ( fromY - toY == 1 || fromY - toY == -1) && ( fromX - toX == 2 || fromX - toX == -2 ) ) ) ))
 	# king
-	elif (( $fig == 6 )) ; then
-		return $(( !( ( ( $fromX - $toX ) * ( $fromX - $toX ) ) <= 1 &&  ( ( $fromY - $toY ) * ( $fromY - $toY ) ) <= 1 ) ))
+	elif (( fig == 6 )) ; then
+		return $(( !( ( ( fromX - toX ) * ( fromX - toX ) ) <= 1 &&  ( ( fromY - toY ) * ( fromY - toY ) ) <= 1 ) ))
 	# invalid figure
 	else
 		error "Invalid figure '$from'!"
@@ -817,54 +840,55 @@ function negamax() {
 	local save=$5
 	# transposition table
 	local aSave=$a
-	local hash="$player ${field[@]}"
-	if ! $save && test "${cacheLookup[$hash]+set}" && (( ${cacheDepth[$hash]} >= $depth )) ; then
+	local hash
+	hash="$player ${field[@]}"
+	if ! $save && test "${cacheLookup[$hash]+set}" && (( ${cacheDepth[$hash]} >= depth )) ; then
 		local value=${cacheLookup[$hash]}
 		local flag=${cacheFlag[$hash]}
-		if (( $flag == 0 )) ; then
+		if (( flag == 0 )) ; then
 			return $value
-		elif (( $flag == 1 && $value > $a )) ; then
+		elif (( flag == 1 && value > a )) ; then
 			a=$value
-		elif (( $flag == -1 && $value < $b )) ; then
+		elif (( flag == -1 && value < b )) ; then
 			b=$value
 		fi
-		if (( $a >= $b )) ; then
+		if (( a >= b )) ; then
 			return $value
 		fi
 	fi
 	# lost own king?
-	if ! hasKing $player ; then
-		cacheLookup[$hash]=$(( $strength - $depth + 1 ))
+	if ! hasKing "$player" ; then
+		cacheLookup[$hash]=$(( strength - depth + 1 ))
 		cacheDepth[$hash]=$depth
 		cacheFlag[$hash]=0
-		return $(( $strength - $depth + 1 ))
+		return $(( strength - depth + 1 ))
 	# use heuristics in depth
-	elif (( $depth <= 0 )) ; then
+	elif (( depth <= 0 )) ; then
 		local values=0
 		for (( y=0; y<8; y++ )) ; do
 			for (( x=0; x<8; x++ )) ; do
 				local fig=${field[$y,$x]}
 				if (( ${field[$y,$x]} != 0 )) ; then
-					local figPlayer=$(( $fig < 0 ? -1 : 1 ))
+					local figPlayer=$(( fig < 0 ? -1 : 1 ))
 					# a more simple heuristic would be values=$(( $values + $fig ))
-					values=$(( $values + ${figValues[$fig * $figPlayer]} * $figPlayer ))
+					(( values += ${figValues[$fig * $figPlayer]} * figPlayer ))
 					# pawns near to end are better
-					if (( $fig == 1 )) ; then
-						if (( $figPlayer > 0 )) ; then
-							values=$(( $values + ( $y - 1 ) / 2 ))
+					if (( fig == 1 )) ; then
+						if (( figPlayer > 0 )) ; then
+							(( values += ( y - 1 ) / 2 ))
 						else
-							values=$(( $values - ( 6 + $y ) / 2 ))
+							(( values -= ( 6 + y ) / 2 ))
 						fi
 					fi
 				fi
 			done
 		done
-		values=$(( 127 + ( $player * $values ) ))
+		values=$(( 127 + ( player * values ) ))
 		# ensure valid bash return range
-		if (( $values > 253 - $strength )) ; then
-			values=$(( 253 - $strength ))
-		elif (( $values < 2 + $strength )) ; then
-			values=$(( 2 + $strength ))
+		if (( values > 253 - strength )) ; then
+			values=$(( 253 - strength ))
+		elif (( values < 2 + strength )) ; then
+			values=$(( 2 + strength ))
 		fi
 		cacheLookup[$hash]=$values
 		cacheDepth[$hash]=0
@@ -881,110 +905,110 @@ function negamax() {
 		local j
 		for (( fromY=0; fromY<8; fromY++ )) ; do
 			for (( fromX=0; fromX<8; fromX++ )) ; do
-				local fig=$(( ${field[$fromY,$fromX]} * ( $player ) ))
+				local fig=$(( ${field[$fromY,$fromX]} * ( player ) ))
 				# precalc possible fields (faster then checking every 8*8 again)
 				local targetY=()
 				local targetX=()
 				local t=0
 				# empty or enemy
-				if (( $fig <= 0 )) ; then
+				if (( fig <= 0 )) ; then
 					continue
 				# pawn
-				elif (( $fig == 1 )) ; then
-					targetY[$t]=$(( $player + $fromY ))
-					targetX[$t]=$fromX
-					t=$(( $t + 1 ))
-					targetY[$t]=$(( 2 * $player + $fromY ))
-					targetX[$t]=$fromX
-					t=$(( $t + 1 ))
-					targetY[$t]=$(( $player + $fromY ))
-					targetX[$t]=$(( $fromX + 1 ))
-					t=$(( $t + 1 ))
-					targetY[$t]=$(( $player + $fromY ))
-					targetX[$t]=$(( $fromX - 1 ))
-					t=$(( $t + 1 ))
+				elif (( fig == 1 )) ; then
+					targetY[$t]=$(( player + fromY ))
+					targetX[$t]=$(( fromX ))
+					(( t += 1 ))
+					targetY[$t]=$(( 2 * player + fromY ))
+					targetX[$t]=$(( fromX ))
+					(( t += 1 ))
+					targetY[$t]=$(( player + fromY ))
+					targetX[$t]=$(( fromX + 1 ))
+					(( t += 1 ))
+					targetY[$t]=$(( player + fromY ))
+					targetX[$t]=$(( fromX - 1 ))
+					(( t += 1 ))
 				# knight
-				elif (( $fig == 2 )) ; then
+				elif (( fig == 2 )) ; then
 					for (( i=-1 ; i<=1 ; i=i+2 )) ; do
 						for (( j=-1 ; j<=1 ; j=j+2 )) ; do
-							targetY[$t]=$(( $fromY + 1 * $i ))
-							targetX[$t]=$(( $fromX + 2 * $j ))
-							t=$(( $t + 1 ))
-							targetY[$t]=$(( $fromY + 2 * $i ))
-							targetX[$t]=$(( $fromX + 1 * $j ))
-							t=$(( $t + 1 ))
+							targetY[$t]=$(( fromY + 1 * i ))
+							targetX[$t]=$(( fromX + 2 * j ))
+							(( t + 1 ))
+							targetY[$t]=$(( fromY + 2 * i ))
+							targetX[$t]=$(( fromX + 1 * j ))
+							(( t + 1 ))
 						done
 					done
 				# king
-				elif (( $fig == 6 )) ; then
+				elif (( fig == 6 )) ; then
 					for (( i=-1 ; i<=1 ; i++ )) ; do
 						for (( j=-1 ; j<=1 ; j++ )) ; do
-							targetY[$t]=$(( $fromY + $i ))
-							targetX[$t]=$(( $fromX + $j ))
-							t=$(( $t + 1 ))
+							targetY[$t]=$(( fromY + i ))
+							targetX[$t]=$(( fromX + j ))
+							(( t += 1 ))
 						done
 					done
 				else
 					# bishop or queen
-					if (( $fig != 4 )) ; then
+					if (( fig != 4 )) ; then
 						for (( i=-8 ; i<=8 ; i++ )) ; do
-							if (( $i != 0 )) ; then
+							if (( i != 0 )) ; then
 								# can be done nicer but avoiding two loops!
-								targetY[$t]=$(( $fromY + $i ))
-								targetX[$t]=$(( $fromX + $i ))
-								t=$(( $t + 1 ))
-								targetY[$t]=$(( $fromY - $i ))
-								targetX[$t]=$(( $fromX - $i ))
-								t=$(( $t + 1 ))
-								targetY[$t]=$(( $fromY + $i ))
-								targetX[$t]=$(( $fromX - $i ))
-								t=$(( $t + 1 ))
-								targetY[$t]=$(( $fromY - $i ))
-								targetX[$t]=$(( $fromX + $i ))
-								t=$(( $t + 1 ))
+								targetY[$t]=$(( fromY + i ))
+								targetX[$t]=$(( fromX + i ))
+								(( t += 1 ))
+								targetY[$t]=$(( fromY - i ))
+								targetX[$t]=$(( fromX - i ))
+								(( t += 1 ))
+								targetY[$t]=$(( fromY + i ))
+								targetX[$t]=$(( fromX - i ))
+								(( t += 1 ))
+								targetY[$t]=$(( fromY - i ))
+								targetX[$t]=$(( fromX + i ))
+								(( t += 1 ))
 							fi
 						done
 					fi
 					# rock or queen
-					if (( $fig != 3 )) ; then
+					if (( fig != 3 )) ; then
 						for (( i=-8 ; i<=8 ; i++ )) ; do
-							if (( $i != 0 )) ; then
-								targetY[$t]=$(( $fromY + $i ))
-								targetX[$t]=$(( $fromX ))
-								t=$(( $t + 1 ))
-								targetY[$t]=$(( $fromY - $i ))
-								targetX[$t]=$(( $fromX ))
-								t=$(( $t + 1 ))
-								targetY[$t]=$(( $fromY ))
-								targetX[$t]=$(( $fromX + $i ))
-								t=$(( $t + 1 ))
-								targetY[$t]=$(( $fromY ))
-								targetX[$t]=$(( $fromX - $i ))
-								t=$(( $t + 1 ))
+							if (( i != 0 )) ; then
+								targetY[$t]=$(( fromY + i ))
+								targetX[$t]=$(( fromX ))
+								(( t += 1 ))
+								targetY[$t]=$(( fromY - i ))
+								targetX[$t]=$(( fromX ))
+								(( t += 1 ))
+								targetY[$t]=$(( fromY ))
+								targetX[$t]=$(( fromX + i ))
+								(( t += 1 ))
+								targetY[$t]=$(( fromY ))
+								targetX[$t]=$(( fromX - i ))
+								(( t += 1 ))
 							fi
 						done
 					fi
 				fi
 				# process all available moves
-				for (( j=0; j<$t; j++ )) ; do
+				for (( j=0; j < t; j++ )) ; do
 					local toY=${targetY[$j]}
 					local toX=${targetX[$j]}
 					# move is valid
-					if (( $toY >= 0 && $toY < 8 && $toX >= 0 && $toX < 8 )) &&  canMove $fromY $fromX $toY $toX $player ; then
+					if (( toY >= 0 && toY < 8 && toX >= 0 && toX < 8 )) &&  canMove "$fromY" "$fromX" "$toY" "$toX" "$player" ; then
 						local oldFrom=${field[$fromY,$fromX]};
 						local oldTo=${field[$toY,$toX]};
 						field[$fromY,$fromX]=0
 						field[$toY,$toX]=$oldFrom
 						# pawn to queen
-						if (( $oldFrom == $player && $toY == ( $player > 0 ? 7 : 0 ) )) ;then
-							field["$toY,$toX"]=$(( 5 * $player )) 
+						if (( oldFrom == player && toY == ( player > 0 ? 7 : 0 ) )) ;then
+							field["$toY,$toX"]=$(( 5 * player ))
 						fi
 						# recursion
-						negamax $(( $depth - 1 )) $(( 255 - $b )) $(( 255 - $a )) $(( $player * (-1) )) false
+						negamax $(( depth - 1 )) $(( 255 - b )) $(( 255 - a )) $(( player * (-1) )) false
 						local val=$(( 255 - $? ))
 						field[$fromY,$fromX]=$oldFrom
 						field[$toY,$toX]=$oldTo
-						if (( $val > $bestVal )) ; then
+						if (( val > bestVal )) ; then
 							bestVal=$val
 							if $save ; then
 								selectedX=$fromX
@@ -993,10 +1017,10 @@ function negamax() {
 								selectedNewY=$toY
 							fi
 						fi
-						if (( $val > $a )) ; then
+						if (( val > a )) ; then
 							a=$val
 						fi
-						if (( $a >= $b )) ; then
+						if (( a >= b )) ; then
 							break 3
 						fi
 					fi
@@ -1005,9 +1029,9 @@ function negamax() {
 		done
 		cacheLookup[$hash]=$bestVal
 		cacheDepth[$hash]=$depth
-		if (( $bestVal <= $aSave )) ; then
+		if (( bestVal <= aSave )) ; then
 			cacheFlag[$hash]=1
-		elif (( $bestVal >= $b )) ; then
+		elif (( bestVal >= b )) ; then
 			cacheFlag[$hash]=-1
 		else
 			cacheFlag[$hash]=0
@@ -1019,7 +1043,7 @@ function negamax() {
 # Perform a concrete single movement
 # Params:
 # 	$1	current player
-# Globals: 
+# Globals:
 #	$selectedY
 #	$selectedX
 #	$selectedNewY
@@ -1027,20 +1051,20 @@ function negamax() {
 # Return status code 0 if movement was successfully performed
 function move() {
 	local player=$1
-	if canMove $selectedY $selectedX $selectedNewY $selectedNewX $player ; then
+	if canMove "$selectedY" "$selectedX" "$selectedNewY" "$selectedNewX" "$player" ; then
 		local fig=${field[$selectedY,$selectedX]}
 		field[$selectedY,$selectedX]=0
 		field[$selectedNewY,$selectedNewX]=$fig
 		# pawn to queen
-		if (( $fig == $player && $selectedNewY == ( $player > 0 ? 7 : 0 ) )) ; then
-			field[$selectedNewY,$selectedNewX]=$(( 5 * $player )) 
+		if (( fig == player && selectedNewY == ( player > 0 ? 7 : 0 ) )) ; then
+			field[$selectedNewY,$selectedNewX]=$(( 5 * player ))
 		fi
 		return 0
 	fi
 	return 1
 }
 
-# Unicode helper function (for draw) 
+# Unicode helper function (for draw)
 # Params:
 #	$1	first hex unicode character number
 #	$2	second hex unicode character number
@@ -1049,12 +1073,11 @@ function move() {
 # Outputs escape character
 function unicode() {
 	if ! $ascii ; then
-#		printf '\\u%x\n' $1
-		printf '\\x%s\\x%s\\x%x' $1 $2 $(( 0x$3 + ( $4 ) ))
+		printf '\\x%s\\x%s\\x%x' "$1" "$2" "$(( 0x$3 + ( $4 ) ))"
 	fi
 }
 
-# Ascii helper function (for draw) 
+# Ascii helper function (for draw)
 # Params:
 #	$1	decimal ascii character number
 # Outputs escape character
@@ -1093,10 +1116,10 @@ function drawField(){
 	echo -en "\e[0m"
 	# move coursor to absolute position
 	if $3 ; then
-		local yScr=$(( $y + $originY ))
-		local xScr=$(( $x * 2 + $originX ))
+		local yScr=$(( y + originY ))
+		local xScr=$(( x * 2 + originX ))
 		if $ascii && (( x >= 0 )) ; then
-			local xScr=$(( $x * 3 + $originX ))
+			local xScr=$(( x * 3 + originX ))
 		fi
 		echo -en "\e[${yScr};${xScr}H"
 	fi
@@ -1109,7 +1132,7 @@ function drawField(){
 				echo -en "\e[4m"
 			fi
 		elif (( selectedY == y )) ; then
-			if ! $color ; then 
+			if ! $color ; then
 				echo -en "\e[2m"
 			elif (( ${field[$selectedY,$selectedX]} < 0 )) ; then
 				echo -en "\e[3${colorPlayerA}m"
@@ -1118,7 +1141,11 @@ function drawField(){
 			fi
 		fi
 		# line number (alpha numeric)
-		$unicodelabels && echo -en "$(unicode e2 92 bd -$y) " || echo -en " \x$((48 - $y))"
+		if $unicodelabels ; then
+			echo -en "$(unicode e2 92 bd -$y) "
+		else
+			echo -en " \x$((48 - $y))"
+		fi
 		# clear format
 	# draw horizontal labels
 	elif (( x>=0 && y==labelY )) ; then
@@ -1129,7 +1156,7 @@ function drawField(){
 				echo -en "\e[4m"
 			fi
 		elif (( selectedX == x )) ; then
-			if ! $color ; then 
+			if ! $color ; then
 				echo -en "\e[2m"
 			elif (( ${field[$selectedY,$selectedX]} < 0 )) ; then
 				echo -en "\e[3${colorPlayerA}m"
@@ -1151,12 +1178,16 @@ function drawField(){
 	elif (( y >=0 && y < 8 && x >= 0 && x < 8 )) ; then
 		local f=${field["$y,$x"]}
 		local black=false
-		if (( (x+y)%2 == 0 )) ; then
+		if (( ( x + y ) % 2 == 0 )) ; then
 			local black=true
 		fi
 		# black/white fields
 		if $black ; then
-			$color && echo -en "\e[47;107m" || echo -en "\e[7m"
+			if $color ; then
+				echo -en "\e[47;107m"
+			else
+				echo -en "\e[7m"
+			fi
 		else
 			$color && echo -en "\e[40m"
 		fi
@@ -1169,40 +1200,56 @@ function drawField(){
 			else
 				echo -en "\e[4${colorHover}m"
 			fi
-		elif (( $selectedX != -1 && $selectedY != -1 )) ; then
+		elif (( selectedX != -1 && selectedY != -1 )) ; then
 			local selectedPlayer=$(( ${field[$selectedY,$selectedX]} > 0 ? 1 : -1 ))
-			if (( $selectedX == $x && $selectedY == $y )) ; then
-				if ! $color ; then 
+			if (( selectedX == x && selectedY == y )) ; then
+				if ! $color ; then
 					echo -en "\e[2m"
 				elif $black ; then
 					echo -en "\e[47m"
 				else
 					echo -en "\e[40;100m"
 				fi
-			elif $color && $colorHelper && canMove $selectedY $selectedX $y $x $selectedPlayer ; then
+			elif $color && $colorHelper && canMove "$selectedY" "$selectedX" "$y" "$x" "$selectedPlayer" ; then
 				if $black ; then
-					(( $selectedPlayer < 0 )) && echo -en "\e[4${colorPlayerA};10${colorPlayerA}m" || echo -en "\e[4${colorPlayerB};10${colorPlayerB}m"
+					if (( selectedPlayer < 0 )) ; then
+						echo -en "\e[4${colorPlayerA};10${colorPlayerA}m"
+					else
+						echo -en "\e[4${colorPlayerB};10${colorPlayerB}m"
+					fi
 				else
-					(( $selectedPlayer < 0 )) && echo -en "\e[4${colorPlayerA}m" || echo -en "\e[4${colorPlayerB}m"
+					if (( selectedPlayer < 0 )) ; then
+						echo -en "\e[4${colorPlayerA}m"
+					else
+						echo -en "\e[4${colorPlayerB}m"
+					fi
 				fi
 			fi
 		fi
 		# empty field?
-		if ! $ascii && (( $f == 0 )) ; then
+		if ! $ascii && (( f == 0 )) ; then
 			echo -en "  "
 		else
 			# figure colors
 			if $color ; then
-				if (( $selectedX == $x && $selectedY == $y )) ; then
-					(( $f < 0 )) && echo -en "\e[3${colorPlayerA}m" || echo -en "\e[3${colorPlayerB}m"
+				if (( selectedX == x && selectedY == y )) ; then
+					if (( f < 0 )) ; then
+						echo -en "\e[3${colorPlayerA}m"
+					else
+						echo -en "\e[3${colorPlayerB}m"
+					fi
 				else
-					(( $f < 0 )) && echo -en "\e[3${colorPlayerA};9${colorPlayerA}m" || echo -en "\e[3${colorPlayerB};9${colorPlayerB}m"
+					if (( f < 0 )) ; then
+						echo -en "\e[3${colorPlayerA};9${colorPlayerA}m"
+					else
+						echo -en "\e[3${colorPlayerB};9${colorPlayerB}m"
+					fi
 				fi
 			fi
 			# unicode figures
 			if $ascii ; then
 				echo -en " \e[1m${asciiNames[ $f + 6 ]} "
-			elif (( $f > 0 )) ; then
+			elif (( f > 0 )) ; then
 				if $color && $colorFill ; then
 					echo -en "$( unicode e2 99 a0 -$f ) "
 				else
@@ -1234,21 +1281,22 @@ function draw() {
 	for (( ty=0; ty<10; ty++ )) ; do
 		for (( tx=-2; tx<8; tx++ )) ; do
 			if $cursor ; then
-				local t="$(drawField $ty $tx true)"
+				local t
+				t="$(drawField "$ty" "$tx" true)"
 				if [[ "${redraw[$ty,$tx]}" != "$t" ]]; then
 					echo -n "$t"
 					redraw[$ty,$tx]="$t"
 					log="[$ty,$tx]"
 				fi
 			else
-				drawField $ty $tx false
+				drawField "$ty" "$tx" false
 			fi
 		done
 		$cursor || echo ""
 	done
 	$useStty && stty echo
 	# clear format
-	echo -en "\e[0m\e[$(($originY+10));0H\e[2K\n\e[2K$message\e[8m"
+	echo -en "\e[0m\e[$(( originY + 10 ));0H\e[2K\n\e[2K$message\e[8m"
 }
 
 # Read the next move coordinates
@@ -1344,11 +1392,11 @@ function inputCoord(){
 							read -sN1 t
 							read -sN1 tx
 							read -sN1 ty
-							ty=$(( `ord "$ty"` - 32 - $originY ))
+							ty=$(( $(ord "$ty") - 32 - originY ))
 							if $ascii ; then
-								tx=$(( (`ord "$tx"` - 32 - $originX) / 3 ))
+								tx=$(( ( $(ord "$tx") - 32 - originX) / 3 ))
 							else
-								tx=$(( (`ord "$tx"` - 32 - $originX) / 2 ))
+								tx=$(( ( $(ord "$tx") - 32 - originX) / 2 ))
 							fi
 							if (( tx >= 0 && tx < 8 && ty >= 0 && ty < 8 )) ; then
 								inputY=$ty
@@ -1378,23 +1426,27 @@ function inputCoord(){
 				;;
 			'~' )
 				;;
-			$'\x7f' | $'\b' ) 
+			$'\x7f' | $'\b' )
 				ret=1
 				bell
 				break
 				;;
 			[A-Ha-h] )
-				t=`ord $a`
-				(( t < 90 )) && inputY=$(( 72 - `ord $a` )) || inputY=$(( 104 - `ord $a` ))
+				t=$(ord $a)
+				if (( t < 90 )) ; then
+					inputY=$(( 72 - $(ord $a) ))
+				else
+					inputY=$(( 104 - $(ord $a) ))
+				fi
 				hoverY=$inputY
 				;;
 			[1-8] )
-				inputX=$(( $a - 1 ))
+				inputX=$(( a - 1 ))
 				hoverX=$inputX
 				;;
 			* )
 				bell
-				;; 
+				;;
 		esac
 		if $hoverInit && (( oldHoverX != hoverX || oldHoverY != hoverY )) ; then
 			oldHoverX=$hoverX
@@ -1417,40 +1469,40 @@ function inputCoord(){
 function input() {
 	local player=$1
 	SECONDS=0
-	message="\e[1m`namePlayer $player`\e[0m: Move your figure"
+	message="\e[1m$(namePlayer "$player")\e[0m: Move your figure"
 	while true ; do
 		selectedY=-1
 		selectedX=-1
-		title="It's `namePlayer $player`s turn"
+		title="It's $(namePlayer "$player")s turn"
 		draw >&3
 		if inputCoord ; then
 			selectedY=$inputY
 			selectedX=$inputX
 			if (( ${field["$selectedY,$selectedX"]} == 0 )) ; then
 				warn "You cannot choose an empty field!" >&3
-			elif (( ${field["$selectedY,$selectedX"]} * $player  < 0 )) ; then
+			elif (( ${field["$selectedY,$selectedX"]} * player  < 0 )) ; then
 				warn "You cannot choose your enemies figures!" >&3
 			else
-				send $player $selectedY $selectedX
+				send "$player" "$selectedY" "$selectedX"
 				local figName=$(nameFigure ${field[$selectedY,$selectedX]} )
-				message="\e[1m`namePlayer $player`\e[0m: Move your \e[3m$figName\e[0m at `coord $selectedY $selectedX` to"
+				message="\e[1m$(namePlayer "$player")\e[0m: Move your \e[3m$figName\e[0m at $(coord "$selectedY" "$selectedX") to"
 				draw >&3
 				if inputCoord ; then
 					selectedNewY=$inputY
 					selectedNewX=$inputX
-					if (( $selectedNewY == $selectedY && $selectedNewX == $selectedX )) ; then
+					if (( selectedNewY == selectedY && selectedNewX == selectedX )) ; then
 						warn "You didn't move..." >&3
 					elif (( ${field[$selectedNewY,$selectedNewX]} * $player > 0 )) ; then
 						warn "You cannot kill your own figures!" >&3
-					elif move $player ; then
-						title="`namePlayer $player` moved the \e[3m$figName\e[0m from `coord $selectedY $selectedX` to `coord $selectedNewY $selectedNewX` \e[2m(took him $SECONDS seconds)\e[0m"
-					send $player $selectedNewY $selectedNewX
+					elif move "$player" ; then
+						title="$(namePlayer "$player") moved the \e[3m$figName\e[0m from $(coord "$selectedY" "$selectedX") to $(coord "$selectedNewY" "$selectedNewX") \e[2m(took him $SECONDS seconds)\e[0m"
+					send "$player" "$selectedNewY" "$selectedNewX"
 						return 0
 					else
 						warn "This move is not allowed!" >&3
 					fi
 					# Same position again --> revoke
-					send $player $selectedY $selectedX
+					send "$player" "$selectedY" "$selectedX"
 				fi
 			fi
 		fi
@@ -1466,22 +1518,23 @@ function ai() {
 	local player=$1
 	local val
 	SECONDS=0
-	title="It's `namePlayer $player`s turn"
-	message="Computer player \e[1m`namePlayer $player`\e[0m is thinking..."
+	title="It's $(namePlayer "$player")s turn"
+	message="Computer player \e[1m$(namePlayer "$player")\e[0m is thinking..."
 	draw >&3
-	negamax $strength 0 255 $player
+	negamax "$strength" 0 255 "$player" true
 	val=$?
-	local figName=$(nameFigure ${field[$selectedY,$selectedX]} )
-	message="\e[1m$( namePlayer $player )\e[0m moves the \e[3m$figName\e[0m at $(coord $selectedY $selectedX)..."
+	local figName
+	figName=$(nameFigure ${field[$selectedY,$selectedX]} )
+	message="\e[1m$( namePlayer "$player" )\e[0m moves the \e[3m$figName\e[0m at $(coord "$selectedY" "$selectedX")..."
 	draw >&3
-	send $player $selectedY $selectedX
-	sleep $sleep
+	send "$player" "$selectedY" "$selectedX"
+	sleep "$sleep"
 	if move $player ; then
-		message="\e[1m$( namePlayer $player )\e[0m moves the \e[3m$figName\e[0m at $(coord $selectedY $selectedX) to $(coord $selectedNewY $selectedNewX)"
+		message="\e[1m$( namePlayer "$player" )\e[0m moves the \e[3m$figName\e[0m at $(coord "$selectedY" "$selectedX") to $(coord "$selectedNewY" "$selectedNewX")"
 		draw >&3
-		send $player $selectedNewY $selectedNewX
-		sleep $sleep
-		title="$( namePlayer $player ) moved the $figName from $(coord $selectedY $selectedX) to $(coord $selectedNewY $selectedNewX) (took him $SECONDS seconds)."
+		send "$player" "$selectedNewY" "$selectedNewX"
+		sleep "$sleep"
+		title="$( namePlayer "$player" ) moved the $figName from $(coord "$selectedY" "$selectedX") to $(coord "$selectedNewY" "$selectedNewX" ) (took him $SECONDS seconds)."
 	else
 		error "AI produced invalid move - that should not hapen!"
 	fi
@@ -1517,7 +1570,7 @@ function receiveX() {
 	while true; do
 		read -n 1 i
 		case $i in
-			[1-8] ) return $(( $i - 1 )) ;;
+			[1-8] ) return $(( i - 1 )) ;;
 			* )
 				if $warnings ; then
 					warn "Invalid input '$i' for column from network (character between '1' and '8' required)!"
@@ -1531,36 +1584,37 @@ function receiveX() {
 function receive() {
 	local player=$remote
 	SECONDS=0
-	title="It's `namePlayer $player`s turn"
-	message="Network player \e[1m`namePlayer $player`\e[0m is thinking... (or sleeping?)"
+	title="It's $(namePlayer "$player")s turn"
+	message="Network player \e[1m$(namePlayer "$player")\e[0m is thinking... (or sleeping?)"
 	draw >&3
 	while true ; do
 		receiveY
 		selectedY=$?
 		receiveX
 		selectedX=$?
-		local figName=$(nameFigure ${field[$selectedY,$selectedX]} )
-		message"\e[1m$( namePlayer $player )\e[0m moves the \e[3m$figName\e[0m at $(coord $selectedY $selectedX)..."
+		local figName
+		figName=$(nameFigure ${field[$selectedY,$selectedX]} )
+		message"\e[1m$( namePlayer "$player" )\e[0m moves the \e[3m$figName\e[0m at $(coord $selectedY $selectedX)..."
 		draw >&3
 		receiveY
 		selectedNewY=$?
 		receiveX
 		selectedNewX=$?
-		if (( $selectedNewY == $selectedY && $selectedNewX == $selectedX )) ; then
+		if (( selectedNewY == selectedY && selectedNewX == selectedX )) ; then
 			selectedY=-1
 			selectedX=-1
 			selectedNewY=-1
 			selectedNewX=-1
-			message="\e[1m$( namePlayer $player )\e[0m revoked his move... okay, that'll be time consuming"
+			message="\e[1m$( namePlayer "$player" )\e[0m revoked his move... okay, that'll be time consuming"
 			draw >&3
 		else
 			break
 		fi
 	done
 	if move $player ; then
-		message="\e[1m$( namePlayer $player )\e[0m moves the \e[3m$figName\e[0m at $(coord $selectedY $selectedX) to $(coord $selectedNewY $selectedNewX)"
+		message="\e[1m$( namePlayer "$player" )\e[0m moves the \e[3m$figName\e[0m at $(coord $selectedY $selectedX) to $(coord $selectedNewY $selectedNewX)"
 		draw >&3
-		sleep $sleep
+		sleep "$sleep"
 		title="$( namePlayer $player ) moved the $figName from $(coord $selectedY $selectedX) to $(coord $selectedNewY $selectedNewX) (took him $SECONDS seconds)."
 	else
 		error "Received invalid move from network - that should not hapen!"
@@ -1577,11 +1631,11 @@ function send() {
 	local player=$1
 	local y=$2
 	local x=$3
-	if (( remote == $player * (-1) )) ; then
-		sleep $remotedelay
-		coord $y $x
+	if (( remote == player * (-1) )) ; then
+		sleep "$remotedelay"
+		coord "$y" "$x"
 		echo
-		sleep $remotedelay
+		sleep "$remotedelay"
 	fi
 }
 
@@ -1639,9 +1693,9 @@ function end() {
 		echo -en "\e[2J\e[?47l\e[?25h\e[u\e8"
 	fi
 	# exit message
-	duration=$(( $( date +%s%N ) - $timestamp ))
-	seconds=$(( $duration / 1000000000 )) 
-	echo -e "\r\n\e[2mYou've wasted $seconds,$(( $duration -( $seconds * 1000000000 ))) seconds of your lifetime playing with a Bash script.\e[0m\n"
+	duration=$(( $( date +%s%N ) - timestamp ))
+	seconds=$(( duration / 1000000000 ))
+	echo -e "\r\n\e[2mYou've wasted $seconds,$(( duration -( seconds * 1000000000 ))) seconds of your lifetime playing with a Bash script.\e[0m\n"
 }
 
 # Exit trap
@@ -1651,11 +1705,11 @@ trap "end" 0
 piper="cat"
 fifopipe="/dev/fd/1"
 initializedGameLoop=true
-if (( $remote != 0 )) ; then
+if (( remote != 0 )) ; then
 	require nc
 	require mknod
 	initializedGameLoop=false
-	if (( $remote == 1 )) ; then
+	if (( remote == 1 )) ; then
 		fifopipe="$fifopipeprefix.server"
 		piper="nc -l $port"
 	else
@@ -1664,17 +1718,17 @@ if (( $remote != 0 )) ; then
 		echo -e "\e[1mWait!\e[0mPlease make sure the Host (the other Player) has started before continuing.\e[0m"
 		anyKey
 	fi
-	if [ ! -e "$fifopipe" ] ; then
+	if [[ ! -e "$fifopipe" ]] ; then
 		mkfifo "$fifopipe"
 	fi
-	if [ ! -p "$fifopipe" ] ; then
+	if [[ ! -p "$fifopipe" ]] ; then
 		echo "Could not create FIFO pipe '$fifopipe'!" >&2
 	fi
 fi
 
 # print welcome title
 title="Welcome to ChessBa.sh"
-if isAI 1 || isAI -1 ; then
+if isAI "1" || isAI "-1" ; then
 	title="$title - your room heater tool!"
 fi
 
@@ -1699,11 +1753,11 @@ fi
 			trap "exitCache" 0
 			warn "Waiting for the other network player to be ready..." >&3
 			# exchange names
-			if (( $remote == -1 )) ; then
+			if (( remote == -1 )) ; then
 				read namePlayerA < $fifopipe
 				echo "$namePlayerB"
 				echo "connected with first player." >&3
-			elif (( $remote == 1 )) ; then
+			elif (( remote == 1 )) ; then
 				echo "$namePlayerA"
 				read namePlayerB < $fifopipe
 				echo "connected with second player." >&3
@@ -1717,23 +1771,23 @@ fi
 		selectedNewY=-1
 		selectedNewX=-1
 		# switch current player
-		p=$(( $p * (-1) ))
+		(( p *= (-1) ))
 		# check check (or: if the king is lost)
-		if hasKing $p ; then
+		if hasKing "$p" ; then
 			if (( remote == p )) ; then
 				receive < $fifopipe
-			elif isAI $p ; then
+			elif isAI "$p" ; then
 				if (( computer-- == 0 )) ; then
 					echo "Stopping - performed all ai steps" >&3
 					exit 0
 				fi
-				ai $p
+				ai "$p"
 			else
-				input $p
+				input "$p"
 			fi
 		else
 			title="Game Over!"
-			message="\e[1m`namePlayer $(( $p * (-1) ))` wins the game!\e[1m\n"
+			message="\e[1m$(namePlayer $(( p * (-1) )) ) wins the game!\e[1m\n"
 			draw >&3
 			anyKey
 			exit 0
@@ -1743,9 +1797,9 @@ fi
 	# check exit code
 	netcatExit=$?
 	gameLoopExit=${PIPESTATUS[0]}
-	if (( $netcatExit != 0 )) ; then
+	if (( netcatExit != 0 )) ; then
 		error "Network failure!"
-	elif (( $gameLoopExit != 0 )) ; then
+	elif (( gameLoopExit != 0 )) ; then
 		error "The game ended unexpected!"
 	fi
 } 3>&1
