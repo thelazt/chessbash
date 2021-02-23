@@ -1,4 +1,4 @@
-#!/bin/bash
+#!/usr/bin/env bash
 #
 # Chess Bash
 # a simple chess game written in an inappropriate language :)
@@ -8,6 +8,16 @@
 # This program is free software; you can redistribute it and/or modify it under the terms of the GNU General Public License as published by the Free Software Foundation; either version 2 of the License, or (at your option) any later version.
 # This program is distributed in the hope that it will be useful, but WITHOUT ANY WARRANTY; without even the implied warranty of MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the GNU General Public License for more details.
 # You should have received a copy of the GNU General Public License along with this program; if not, write to the Free Software Foundation, Inc., 51 Franklin Street, Fifth Floor, Boston, MA 02110-1301 USA.
+#
+# ---------------------------------------------------------------
+# Forked version from https://github.com/IgorLeMasson/chessbash
+# ---------------------------------------------------------------
+
+# Bash version test
+if ((BASH_VERSINFO[0] < 4)); then
+	echo "Sorry, it is required at least bash-4.0 to run $0." >&2
+	exit 1
+fi
 
 # Default values
 strength=3
@@ -332,6 +342,7 @@ while getopts ":a:A:b:B:c:P:s:t:w:dghilmMnpvVz" options; do
 			;;
 		p )	ascii=true
 			unicodelabels=false
+			LC_ALL=C
 			;;
 		i )	warnings=true
 			;;
@@ -348,7 +359,7 @@ while getopts ":a:A:b:B:c:P:s:t:w:dghilmMnpvVz" options; do
 			exit 0
 			;;
 		\?)
-			echo -e "Invalid option: -$OPTARG\nFor help, run: ./$0 -h" >&2
+			echo -e "Invalid option: -$OPTARG\nFor help, run ./$0 -h" >&2
 			exit 1
 			;;
 	esac
@@ -643,6 +654,7 @@ if $cursor ; then
 	done
 fi
 
+# array to set and get the piece type per coordinates [y,x]
 declare -A field
 
 # board start position
@@ -668,14 +680,18 @@ done
 declare -a figNames=( "(empty)" "pawn" "knight" "bishop" "rook" "queen" "king" )
 # ascii figure names (for ascii output)
 declare -a asciiNames=( "k" "q" "r" "b" "n" "p" " " "P" "N" "B" "R" "Q" "K" )
+
 # Evaluaton
 # References:
 # https://www.chessprogramming.org/Evaluation
 # https://www.chessprogramming.org/Point_Value
+# https://en.wikipedia.org/wiki/Chess_piece_relative_value
 #
 # Point value basic evaluation:
 # figure weight (for heuristic)
-declare -a figValues=( 0 1 5 5 6 17 42 )
+#declare -a figValues=( 0 1 5 5 6 17 42 )
+declare -a figValues=( 0 1 3 3 5 9 42 )
+#declare -a figValues=( 0 100 320 330 500 900 10000 )
 
 # Warning message on invalid moves (Helper)
 # Params:
@@ -688,12 +704,12 @@ function warn() {
 
 # Readable coordinates
 # Params:
-#	$1	row position
-#	$2	column position
+#	$1	row / rank position
+#	$2	column / file position
 # Writes coordinates to stdout
 function coord() {
-	#echo -en "\x$((48-$1))$(($2+1))"
-	echo -en "\x$((41 + $2))$((8 - $1))" # notation partially ok
+	#echo -en "\x$((41 + $2))$((8 - $1))" # uppercase
+	echo -en "\x$((61 + $2))$((8 - $1))"  # lowercase
 }
 
 # Get name of player
@@ -787,9 +803,9 @@ function canMove() {
 			else
 				return $(( ! ( (fromX - toX) * (fromX - toX) == 1 && toY - fromY == player && to * player < 0 ) ))
 		fi
-	# queen, rock and bishop
+	# queen, rook and bishop
 	elif (( fig == 5 || fig == 4  || fig == 3 )) ; then
-		# rock - and queen
+		# rook - and queen
 		if (( fig != 3 )) ; then
 			if (( fromX == toX )) ; then
 				for (( i = ( fromY < toY ? fromY : toY ) + 1 ; i < ( fromY > toY ? fromY : toY ) ; i++ )) ; do
@@ -834,6 +850,80 @@ function canMove() {
 	fi
 }
 
+: '
+# declare -A assArray2=( [HDD]=Samsung [Monitor]=Dell [Keyboard]=A4Tech )
+# Piece square tables (reference for white: first element is a8 square)
+
+## pawn
+pst_pawn=(
+(0   0   0   0   0   0   0   0),
+(50  50  50  50  50  50  50  50),
+(10  10  20  30  30  20  10  10),
+(5   5   10  25  25  10  5   5),
+(0   0   0   20  20  0   0   0),
+(5  -5  -10  0   0  -10 -5   5),
+(5   10  10 -20 -20  10  10  5),
+(0   0   0   0   0   0   0   0))
+
+
+# bishop
+pst_knight=(
+(-50 -40,-30,-30,-30,-30,-40,-50),
+(-40,-20,  0,  0,  0,  0,-20,-40),
+(-30,  0, 10, 15, 15, 10,  0,-30),
+(-30,  5, 15, 20, 20, 15,  5,-30),
+(-30,  0, 15, 20, 20, 15,  0,-30),
+(-30,  5, 10, 15, 15, 10,  5,-30),
+(-40,-20,  0,  5,  5,  0,-20,-40),
+(-50,-40,-30,-30,-30,-30,-40,-50))
+
+# bishop
+pst_bishop=
+(20,-10,-10,-10,-10,-10,-10,-20,
+-10,  0,  0,  0,  0,  0,  0,-10,
+-10,  0,  5, 10, 10,  5,  0,-10,
+-10,  5,  5, 10, 10,  5,  5,-10,
+-10,  0, 10, 10, 10, 10,  0,-10,
+-10, 10, 10, 10, 10, 10, 10,-10,
+-10,  5,  0,  0,  0,  0,  5,-10,
+-20,-10,-10,-10,-10,-10,-10,-20)
+
+# rook
+pst_rook=
+ (0,  0,  0,  0,  0,  0,  0,  0,
+  5, 10, 10, 10, 10, 10, 10,  5,
+ -5,  0,  0,  0,  0,  0,  0, -5,
+ -5,  0,  0,  0,  0,  0,  0, -5,
+ -5,  0,  0,  0,  0,  0,  0, -5,
+ -5,  0,  0,  0,  0,  0,  0, -5,
+ -5,  0,  0,  0,  0,  0,  0, -5,
+  0,  0,  0,  5,  5,  0,  0,  0)
+
+# queen
+pst_queen=
+(-20,-10,-10, -5, -5,-10,-10,-20,
+-10,  0,  0,  0,  0,  0,  0,-10,
+-10,  0,  5,  5,  5,  5,  0,-10,
+ -5,  0,  5,  5,  5,  5,  0, -5,
+  0,  0,  5,  5,  5,  5,  0, -5,
+-10,  5,  5,  5,  5,  5,  0,-10,
+-10,  0,  5,  0,  0,  0,  0,-10,
+-20,-10,-10, -5, -5,-10,-10,-20)
+
+# king middle game
+pst_king_middle=
+(-30,-40,-40,-50,-50,-40,-40,-30,
+-30,-40,-40,-50,-50,-40,-40,-30,
+-30,-40,-40,-50,-50,-40,-40,-30,
+-30,-40,-40,-50,-50,-40,-40,-30,
+-20,-30,-30,-40,-40,-30,-30,-20,
+-10,-20,-20,-20,-20,-20,-20,-10,
+ 20, 20,  0,  0,  0,  0, 20, 20,
+ 20, 30, 10,  0,  0, 10, 30, 20)
+
+'
+
+
 # minimax (game theory) algorithm for evaluate possible movements
 # (the heart of your computer enemy)
 # currently based on negamax with alpha/beta pruning and transposition tables liked described in
@@ -845,7 +935,10 @@ function canMove() {
 #	$4	current moving player
 #	$5	preserves the best move (for ai) if true
 # Returns best value as status code
+# negamax "$strength" 0 255 "$player" true
 function negamax() {
+	#set -x
+	LC_ALL=C
 	local depth=$1
 	local a=$2
 	local b=$3
@@ -884,7 +977,15 @@ function negamax() {
 				if (( ${field[$y,$x]} != 0 )) ; then
 					local figPlayer=$(( fig < 0 ? -1 : 1 ))
 					# a more simple heuristic would be values=$(( $values + $fig ))
+
+					# figPlayer: white=1, black =-1
+					# fig: piece number identifier
+					# figValues: material piece value
+					# ${figValues[$fig]} * figPlayer = material total value
+
+					#(( values += ${figValues[$fig]} * figPlayer ))
 					(( values += ${figValues[$fig * $figPlayer]} * figPlayer ))
+
 					# pawns near to end are better
 					if (( fig == 1 )) ; then
 						if (( figPlayer > 0 )) ; then
@@ -897,7 +998,7 @@ function negamax() {
 			done
 		done
 		values=$(( 127 + ( player * values ) ))
-		# ensure valid bash return range
+		# ensure valid bash return range [0-255]
 		if (( values > 253 - strength )) ; then
 			values=$(( 253 - strength ))
 		elif (( values < 2 + strength )) ; then
@@ -982,7 +1083,7 @@ function negamax() {
 							fi
 						done
 					fi
-					# rock or queen
+					# rook or queen
 					if (( fig != 3 )) ; then
 						for (( i=-8 ; i<=8 ; i++ )) ; do
 							if (( i != 0 )) ; then
@@ -1051,6 +1152,7 @@ function negamax() {
 		fi
 		return $bestVal
 	fi
+#set +x
 }
 
 # Perform a concrete single movement
@@ -1184,9 +1286,11 @@ function drawField(){
 		fi
 		# row labels
 		if $unicodelabels ; then
-			echo -en "$(unicode e2 92 b6 "$x") "
+			#echo -en "$(unicode e2 92 b6 "$x") " # uppercase
+			echo -en "$(unicode e2 93 90 "$x") "  # lowercase
 		else
-			echo -en " \x$((41 + x))"
+			#echo -en " \x$((41 + x))"  # uppercase
+			echo -en " \x$((61 + x))"   # lowercase
 		fi
 	# draw field
 	elif (( y >=0 && y < 8 && x >= 0 && x < 8 )) ; then
@@ -1318,6 +1422,7 @@ function draw() {
 # or use mouse input (if available)
 # Returns 0 on success and 1 on abort
 function inputCoord(){
+  #set -x
 	inputY=-1
 	inputX=-1
 	local ret=0
@@ -1406,11 +1511,11 @@ function inputCoord(){
 							read -r -sN1 t
 							read -r -sN1 tx
 							read -r -sN1 ty
-							ty=$(( $(ord "$ty") - 32 - originY ))
+							ty=$(( $(ord "$ty" ) - 32 - originY ))
 							if $ascii ; then
-								tx=$(( ( $(ord "$tx") - 32 - originX) / 3 ))
+								tx=$(( ( $(ord "$tx" ) - 32 - originX) / 3 ))
 							else
-								tx=$(( ( $(ord "$tx") - 32 - originX) / 2 ))
+								tx=$(( ( $(ord "$tx" ) - 32 - originX) / 2 ))
 							fi
 							if (( tx >= 0 && tx < 8 && ty >= 0 && ty < 8 )) ; then
 								inputY=$ty
@@ -1448,15 +1553,15 @@ function inputCoord(){
 			[A-Ha-h] )
 				t=$(ord "$a")
 				if (( t < 90 )) ; then
-					inputY=$(( 72 - $(ord "$a") ))
+					inputX=$(( t - 65 ))
 				else
-					inputY=$(( 104 - $(ord "$a") ))
+					inputX=$(( t - 97 ))
 				fi
-				hoverY=$inputY
+				hoverX=$inputX
 				;;
 			[1-8] )
-				inputX=$(( a - 1 ))
-				hoverX=$inputX
+				inputY=$(( 8 - a ))
+				hoverY=$inputY
 				;;
 			* )
 				bell
@@ -1473,6 +1578,7 @@ function inputCoord(){
 	fi
 	$useStty && stty -echo
 	return $ret
+	#set +x
 }
 
 # Player input
@@ -1481,6 +1587,7 @@ function inputCoord(){
 # 	$1	current (user) player
 # Returns status code 0
 function input() {
+	#set -x
 	local player=$1
 	SECONDS=0
 	message="\e[1m$(namePlayer "$player")\e[0m: Move your figure"
@@ -1522,6 +1629,7 @@ function input() {
 			fi
 		fi
 	done
+	#set +x
 }
 
 # AI interaction
@@ -1555,29 +1663,6 @@ function ai() {
 	fi
 }
 
-# Read row from remote
-# Returns row (0-7) as status code
-function receiveY() {
-	local i
-	while true; do
-		read -r -n 1 i
-		case $i in
-			[hH] ) return 0 ;;
-			[gG] ) return 1 ;;
-			[fF] ) return 2 ;;
-			[eE] ) return 3 ;;
-			[dD] ) return 4 ;;
-			[cC] ) return 5 ;;
-			[bB] ) return 6 ;;
-			[aA] ) return 7 ;;
-			* )
-				if $warnings ; then
-					warn "Invalid input '$i' for row from network (character between 'A' and 'H' required)!"
-				fi
-		esac
-	done
-}
-
 # Read column from remote
 # Returns column (0-7) as status code
 function receiveX() {
@@ -1585,10 +1670,33 @@ function receiveX() {
 	while true; do
 		read -r -n 1 i
 		case $i in
+			[hH] ) return 7 ;;
+			[gG] ) return 6 ;;
+			[fF] ) return 5 ;;
+			[eE] ) return 4 ;;
+			[dD] ) return 3 ;;
+			[cC] ) return 2 ;;
+			[bB] ) return 1 ;;
+			[aA] ) return 0 ;;
+			* )
+				if $warnings ; then
+					warn "Invalid input '$i' for column from network (character between 'A' and 'H' required)!"
+				fi
+		esac
+	done
+}
+
+# Read row from remote
+# Returns row (0-7) as status code
+function receiveY() {
+	local i
+	while true; do
+		read -r -n 1 i
+		case $i in
 			[1-8] ) return $(( i - 1 )) ;;
 			* )
 				if $warnings ; then
-					warn "Invalid input '$i' for column from network (character between '1' and '8' required)!"
+					warn "Invalid input '$i' for row from network (character between '1' and '8' required)!"
 				fi
 		esac
 	done
@@ -1717,6 +1825,7 @@ function end() {
 trap "end" 0
 
 # setting up requirements for network
+set -x
 piper="cat"
 fifopipe="/dev/fd/1"
 initializedGameLoop=true
@@ -1818,3 +1927,4 @@ fi
 		error "The game ended unexpected!"
 	fi
 } 3>&1
+set +x
