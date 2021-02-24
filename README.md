@@ -31,11 +31,11 @@ Just make it executable ( `chmod +x chessba.sh` ) and start the script by typing
 
 This will start a player versus computer game.
 
-Additional modes and settings are available; to list them just take a look at 
+Additional modes and settings are available; to list them just take a look at
 
     ./chessba.sh -h
 
-**Controls:** Simply input the coordinates (first the row denoted by the letters [A]-[H], then the column according to the numbers [1]-[8]) from the figure you want to move, afterwards the target coordinates (in the same format).
+**Controls:** Simply input the coordinates (first the column denoted by the letters [a]-[h], then the row according to the numbers [1]-[8]) from the figure you want to move, afterwards the target coordinates (in the same format).
 
 
 Rules
@@ -80,7 +80,7 @@ And if you are crazy enough to look at the code: The main part was written there
 
 Internals
 ---------
-**Algorithm:** 
+**Algorithm:**
 While I first started with a classic [Minimax](http://en.wikipedia.org/wiki/Minimax) it was gradually enhanced, the current version uses [Negamax with Alpha/Beta pruning and transposition table](http://en.wikipedia.org/wiki/Negamax#NegaMax_with_Alpha_Beta_Pruning_and_Transposition_Tables).
 
 **Functions** are mostly avoided (in the engine) for performance concerns. But in the case they are still required, I use global variables and the exit status code for interaction - this might explain several design decisions.
