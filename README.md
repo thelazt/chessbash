@@ -41,7 +41,7 @@ Additional modes and settings are available; to list them just take a look at
 Rules
 -----
 For simplicity, there are some cutbacks on the implemented [chess rules](http://en.wikipedia.org/wiki/Rules_of_chess) (yet).
-Besides the basic movement of pieces only the pawn promotion is considered - with the limitation that pawns automatically become queens.
+Besides the basic movement of pieces only the pawn promotion is considered - with the limitation that pawns automatically become queens. So castle and en passant moves are not yet implemented.
 
 At the moment no special regard is taken to check/checkmate - the game ends, when one loses his king.
 
@@ -55,7 +55,7 @@ Tips and Tricks
   * If you start a multiplayer game, the first player (with the script parameter `-b "remote"`) should run the game script first, because he acts as server.
 
 
-But why Bash???
+But why Bash??? (Notes from original author)
 ---------------
 In a normal case, nobody will ask for the motivation - but in this special case it seems necessary to explain it:
 
