@@ -661,19 +661,18 @@ declare -A field
 # initialize setting - first row
 declare -a initline=( 4  2  3  5  6  3  2  4 )
 for (( x=0; x<8; x++ )) ; do
+	# set pieces at row 1
 	field[0,$x]=${initline[$x]}
-	field[7,$x]=$(( (-1) * ${initline[$x]} ))
-done
-# set pawns
-for (( x=0; x<8; x++ )) ; do
+	# set pawns at row 2
 	field[1,$x]=1
-	field[6,$x]=-1
-done
-# set empty fields
-for (( y=2; y<6; y++ )) ; do
-	for (( x=0; x<8; x++ )) ; do
+  # set empty squares from row 3 up to row 6
+	for (( y=2; y<6; y++ )) ; do
 		field[$y,$x]=0
 	done
+	# set pawns at row 7
+  field[6,$x]=-1
+	# set pieces at row 8
+	field[7,$x]=$(( (-1) * ${initline[$x]} ))
 done
 
 # readable figure names
