@@ -1,4 +1,4 @@
-#/bin/bash
+#!/bin/bash
 #
 # Chess Bash
 # a simple chess game written in an inappropriate language :)
