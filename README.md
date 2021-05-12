@@ -11,8 +11,8 @@ Features
 --------
   * Pure Bash script
   * Chess engine / computer enemy (and even computer versus computer)
-  * Unicode support (nice Figures)
-  * Coloured output (using ANSI Codes)
+  * Unicode support (nice figures to represent the pieces)
+  * Colored output (using ANSI Codes)
   * Network support (aka Multiplayer)
   * Permanent transposition tables (import/export)
   * Keyboard cursor and mouse support
@@ -31,17 +31,17 @@ Just make it executable ( `chmod +x chessba.sh` ) and start the script by typing
 
 This will start a player versus computer game.
 
-Additional modes and settings are available; to list them just take a look at 
+Additional modes and settings are available; to list them just take a look at
 
     ./chessba.sh -h
 
-**Controls:** Simply input the coordinates (first the row denoted by the letters [A]-[H], then the column according to the numbers [1]-[8]) from the figure you want to move, afterwards the target coordinates (in the same format).
+**Controls:** Simply input the coordinates (the columns are denoted by the letters [a]-[h] and the rows are denoted by the numbers [1]-[8]) from the piece you want to move, afterwards the target coordinates (in the same format).
 
 
 Rules
 -----
 For simplicity, there are some cutbacks on the implemented [chess rules](http://en.wikipedia.org/wiki/Rules_of_chess) (yet).
-Besides the basic movement of figures only the pawn promotion is considered - with the limitation that pawns automatically become queens.
+Besides the basic movement of pieces only the pawn promotion is considered - with the limitation that pawns automatically become queens. So castle and en passant moves are not yet implemented.
 
 At the moment no special regard is taken to check/checkmate - the game ends, when one loses his king.
 
@@ -50,12 +50,12 @@ These limitations are at the moment mainly based on the lack of an easy incorpor
 
 Tips and Tricks
 ---------------
-  * Invalid figure selections/moves are discarded with an warning message. If you've chosen the wrong figure at the input, just re-enter the same coordinates and now you can select another figure.
-  * For a better gaming experience (= bigger and nicer figures), use [Ubunto Mono](http://font.ubuntu.com/#charset-mono-regular) or [Droid Sans Mono](http://www.droidfonts.com/info/droid-sans-mono-fonts/).
+  * Invalid piece selections/moves are discarded with an warning message. If you've chosen the wrong piece at the input, just re-enter the same coordinates and now you can select another piece.
+  * For a better gaming experience (= bigger and nicer pieces), use [Ubunto Mono](http://font.ubuntu.com/#charset-mono-regular) or [Droid Sans Mono](http://www.droidfonts.com/info/droid-sans-mono-fonts/).
   * If you start a multiplayer game, the first player (with the script parameter `-b "remote"`) should run the game script first, because he acts as server.
 
 
-But why Bash???
+But why Bash??? (Notes from original author)
 ---------------
 In a normal case, nobody will ask for the motivation - but in this special case it seems necessary to explain it:
 
@@ -75,12 +75,12 @@ http://www.pouet.net/prod.php?which=64962) for complete games including engine!
 Putting all together, we have both really good engines easily defeating grandmasters and damn tiny chess games - so what easy opportunities are left, not solved by generations of great programmers?
 
 Yes, writing chess in inappropriate languages - in my case **Bash**, because when I began writing the script I was on a ferry without Internet access having only a plain Ubuntu on the notebook.
-And if you are crazy enough to look at the code: The main part was written there travelling on a rainy day on the sea (I had a few hours), therefore don't expect a clean organised script!
+And if you are crazy enough to look at the code: The main part was written there travelling on a rainy day on the sea (I had a few hours), therefore don't expect a clean organized script!
 
 
 Internals
 ---------
-**Algorithm:** 
+**Algorithm:**
 While I first started with a classic [Minimax](http://en.wikipedia.org/wiki/Minimax) it was gradually enhanced, the current version uses [Negamax with Alpha/Beta pruning and transposition table](http://en.wikipedia.org/wiki/Negamax#NegaMax_with_Alpha_Beta_Pruning_and_Transposition_Tables).
 
 **Functions** are mostly avoided (in the engine) for performance concerns. But in the case they are still required, I use global variables and the exit status code for interaction - this might explain several design decisions.

@@ -1,4 +1,4 @@
-#/bin/bash
+#!/usr/bin/env bash
 #
 # Chess Bash
 # a simple chess game written in an inappropriate language :)
@@ -8,6 +8,16 @@
 # This program is free software; you can redistribute it and/or modify it under the terms of the GNU General Public License as published by the Free Software Foundation; either version 2 of the License, or (at your option) any later version.
 # This program is distributed in the hope that it will be useful, but WITHOUT ANY WARRANTY; without even the implied warranty of MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the GNU General Public License for more details.
 # You should have received a copy of the GNU General Public License along with this program; if not, write to the Free Software Foundation, Inc., 51 Franklin Street, Fifth Floor, Boston, MA 02110-1301 USA.
+#
+# ---------------------------------------------------------------
+# Forked version from https://github.com/IgorLeMasson/chessbash
+# ---------------------------------------------------------------
+
+# Bash version test
+if ((BASH_VERSINFO[0] < 4)); then
+	echo "Sorry, it is required at least bash-4.0 to run $0." >&2
+	exit 1
+fi
 
 # Default values
 strength=3
@@ -56,6 +66,9 @@ labelX=-2
 labelY=9
 type stty >/dev/null 2>&1 && useStty=true || useStty=false
 
+# version build number
+build="0.41"
+
 # Choose unused color for hover
 while (( colorHover == colorPlayerA || colorHover == colorPlayerB )) ; do
 	(( colorHover++ ))
@@ -64,7 +77,7 @@ done
 # Check Unicode availbility
 # We do this using a trick: printing a special zero-length unicode char (http://en.wikipedia.org/wiki/Combining_Grapheme_Joiner) and retrieving the cursor position afterwards.
 # If the cursor position is at beginning, the terminal knows unicode. Otherwise it has printed some replacement character.
-echo -en "\e7\e[s\e[H\r\xcd\x8f\e[6n" && read -sN6 -t0.1 x
+echo -en "\e7\e[s\e[H\r\xcd\x8f\e[6n" && read -r -sN6 -t0.1 x
 if [[ "${x:4:1}" == "1" ]] ; then
 	ascii=false
 	unicodelabels=true
@@ -76,7 +89,7 @@ echo -e "\e[u\e8\e[2K\r\e[0m\nWelcome to \e[1mChessBa.sh\e[0m - a Chess game wri
 
 # Print version information
 function version() {
-	echo "ChessBash 0.4"
+	echo ChessBash $build
 }
 
 # Wait for key press
@@ -84,7 +97,7 @@ function version() {
 function anyKey(){
 	$useStty && stty echo
 	echo -e "\e[2m(Press any key to continue)\e[0m"
-	read -sN1
+	read -r -sN1
 	$useStty && stty -echo
 }
 
@@ -166,7 +179,7 @@ function getColor() {
 		local v=${colors[$c]:0:1}
 		local i=${1:0:1}
 		if [[ "${v^^}" == "${i^^}" || "$c" -eq "$i" ]] ; then
-			return $c
+			return "$c"
 		fi
 	done
 	return 0
@@ -246,7 +259,7 @@ function help {
 # Parse command line arguments
 while getopts ":a:A:b:B:c:P:s:t:w:dghilmMnpvVz" options; do
 	case $options in
-		a )	if [[ -z "$OPTARG" ]] ;then
+		a )	if [[ -z "$OPTARG" ]] ; then
 				echo "No valid name for first player specified!" >&2
 				exit 1
 			# IPv4 && IPv6 validation, source: http://stackoverflow.com/a/9221063
@@ -264,7 +277,7 @@ while getopts ":a:A:b:B:c:P:s:t:w:dghilmMnpvVz" options; do
 				exit 1
 			fi
 			;;
-		b )	if [[ -z "$OPTARG" ]] ;then
+		b )	if [[ -z "$OPTARG" ]] ; then
 				echo "No valid name for second player specified!" >&2
 				exit 1
 			elif [[ "${OPTARG,,}" == "$remotekeyword" ]] ; then
@@ -329,10 +342,12 @@ while getopts ":a:A:b:B:c:P:s:t:w:dghilmMnpvVz" options; do
 			;;
 		p )	ascii=true
 			unicodelabels=false
+			LC_ALL=C
 			;;
 		i )	warnings=true
 			;;
 		v )	version
+			exit 0
 			;;
 		V )	cursor=false
 			;;
@@ -344,15 +359,16 @@ while getopts ":a:A:b:B:c:P:s:t:w:dghilmMnpvVz" options; do
 			exit 0
 			;;
 		\?)
-			echo "Invalid option: -$OPTARG" >&2
+			echo -e "Invalid option: -$OPTARG\nFor help, run ./$0 -h" >&2
+			exit 1
 			;;
 	esac
 done
 
 # get terminal dimension
 echo -en '\e[18t'
-if read -d "t" -s -t 1 tmp ; then
-	termDim=(${tmp//;/ })
+if read -r -d "t" -s -t 1 tmp ; then
+	termDim=("${tmp//;/ }")
 	termHeight=${termDim[1]}
 	termWidth=${termDim[2]}
 else
@@ -416,7 +432,7 @@ if $guiconfig ; then
 	function dlg() {
 		if [[ -n "$dlgtool" ]] ; then
 			$dlgtool --backtitle "ChessBash" "$@" 3>&1 1>&2 2>&3 | sed -e "s/|/\n/g" | sort -u
-			return ${PIPESTATUS[0]}
+			return "${PIPESTATUS[0]}"
 		else
 			return 255
 		fi
@@ -563,7 +579,7 @@ if $guiconfig ; then
 
 				# Game settings
 				"$option_mainmenu_settings" )
-					if dlg_settings=$(dlg --separate-output --checklist "$option_mainmenu_settings" $dlgh $dlgw $dlgw "${option_settings[0]}" "with movements and figures" $($color && echo $dlg_on || echo $dlg_off) "${option_settings[1]}" "optional including board labels" $($ascii && echo $dlg_off || echo $dlg_on) "${option_settings[2]}" "be chatty" $($warnings && echo $dlg_on || echo $dlg_off) "${option_settings[3]}" "be clicky" $($mouse && echo $dlg_on || echo $dlg_off) "${option_settings[4]}" "in a regluar file" $([[ -n "$cache" ]] && echo $dlg_on || echo $dlg_off) ) ; then
+					if dlg_settings=$(dlg --separate-output --checklist "$option_mainmenu_settings" $dlgh $dlgw $dlgw "${option_settings[0]}" "with movements and figures" "$($color && echo $dlg_on || echo $dlg_off)" "${option_settings[1]}" "optional including board labels" "$($ascii && echo $dlg_off || echo $dlg_on)" "${option_settings[2]}" "be chatty" "$($warnings && echo $dlg_on || echo $dlg_off)" "${option_settings[3]}" "be clicky" "$($mouse && echo $dlg_on || echo $dlg_off)" "${option_settings[4]}" "in a regluar file" "$([[ -n "$cache" ]] && echo $dlg_on || echo $dlg_off)" ) ; then
 						# Color support
 						if [[ "$dlg_settings" == *"${option_settings[0]}"* ]] ; then
 							color=true
@@ -638,32 +654,43 @@ if $cursor ; then
 	done
 fi
 
+# array to set and get the piece type per coordinates [y,x]
 declare -A field
 
+# board start position
 # initialize setting - first row
-declare -a initline=( 4  2  3  6  5  3  2  4 )
+declare -a initline=( 4  2  3  5  6  3  2  4 )
 for (( x=0; x<8; x++ )) ; do
+	# set pieces at row 1
 	field[0,$x]=${initline[$x]}
-	field[7,$x]=$(( (-1) * ${initline[$x]} ))
-done
-# set pawns
-for (( x=0; x<8; x++ )) ; do
+	# set pawns at row 2
 	field[1,$x]=1
-	field[6,$x]=-1
-done
-# set empty fields
-for (( y=2; y<6; y++ )) ; do
-	for (( x=0; x<8; x++ )) ; do
+  # set empty squares from row 3 up to row 6
+	for (( y=2; y<6; y++ )) ; do
 		field[$y,$x]=0
 	done
+	# set pawns at row 7
+  field[6,$x]=-1
+	# set pieces at row 8
+	field[7,$x]=$(( (-1) * ${initline[$x]} ))
 done
 
 # readable figure names
 declare -a figNames=( "(empty)" "pawn" "knight" "bishop" "rook" "queen" "king" )
 # ascii figure names (for ascii output)
 declare -a asciiNames=( "k" "q" "r" "b" "n" "p" " " "P" "N" "B" "R" "Q" "K" )
+
+# Evaluaton
+# References:
+# https://www.chessprogramming.org/Evaluation
+# https://www.chessprogramming.org/Point_Value
+# https://en.wikipedia.org/wiki/Chess_piece_relative_value
+#
+# Point value basic evaluation:
 # figure weight (for heuristic)
-declare -a figValues=( 0 1 5 5 6 17 42 )
+#declare -a figValues=( 0 1 5 5 6 17 42 )
+declare -a figValues=( 0 1 3 3 5 9 42 )
+#declare -a figValues=( 0 100 320 330 500 900 10000 )
 
 # Warning message on invalid moves (Helper)
 # Params:
@@ -676,11 +703,12 @@ function warn() {
 
 # Readable coordinates
 # Params:
-#	$1	row position
-#	$2	column position
+#	$1	row / rank position
+#	$2	column / file position
 # Writes coordinates to stdout
 function coord() {
-	echo -en "\x$((48-$1))$(($2+1))"
+	#echo -en "\x$((41 + $2))$((8 - $1))" # uppercase
+	echo -en "\x$((61 + $2))$((8 - $1))"  # lowercase
 }
 
 # Get name of player
@@ -774,9 +802,9 @@ function canMove() {
 			else
 				return $(( ! ( (fromX - toX) * (fromX - toX) == 1 && toY - fromY == player && to * player < 0 ) ))
 		fi
-	# queen, rock and bishop
+	# queen, rook and bishop
 	elif (( fig == 5 || fig == 4  || fig == 3 )) ; then
-		# rock - and queen
+		# rook - and queen
 		if (( fig != 3 )) ; then
 			if (( fromX == toX )) ; then
 				for (( i = ( fromY < toY ? fromY : toY ) + 1 ; i < ( fromY > toY ? fromY : toY ) ; i++ )) ; do
@@ -799,7 +827,7 @@ function canMove() {
 			if (( ( fromY - toY ) * ( fromY - toY ) != ( fromX - toX ) * ( fromX - toX ) )) ; then
 				return 1
 			fi
-			for (( i = 1 ; i < ( $fromY > toY ? fromY - toY : toY - fromY) ; i++ )) ; do
+			for (( i = 1 ; i < ( fromY > toY ? fromY - toY : toY - fromY) ; i++ )) ; do
 				if (( ${field[$((fromY + i * (toY - fromY > 0 ? 1 : -1 ) )),$(( fromX + i * (toX - fromX > 0 ? 1 : -1 ) ))]} != 0 )) ; then
 					return 1
 				fi
@@ -821,6 +849,7 @@ function canMove() {
 	fi
 }
 
+
 # minimax (game theory) algorithm for evaluate possible movements
 # (the heart of your computer enemy)
 # currently based on negamax with alpha/beta pruning and transposition tables liked described in
@@ -832,7 +861,10 @@ function canMove() {
 #	$4	current moving player
 #	$5	preserves the best move (for ai) if true
 # Returns best value as status code
+# negamax "$strength" 0 255 "$player" true
 function negamax() {
+	#set -x
+	LC_ALL=C
 	local depth=$1
 	local a=$2
 	local b=$3
@@ -846,14 +878,14 @@ function negamax() {
 		local value=${cacheLookup[$hash]}
 		local flag=${cacheFlag[$hash]}
 		if (( flag == 0 )) ; then
-			return $value
+			return "$value"
 		elif (( flag == 1 && value > a )) ; then
 			a=$value
 		elif (( flag == -1 && value < b )) ; then
 			b=$value
 		fi
 		if (( a >= b )) ; then
-			return $value
+			return "$value"
 		fi
 	fi
 	# lost own king?
@@ -871,7 +903,15 @@ function negamax() {
 				if (( ${field[$y,$x]} != 0 )) ; then
 					local figPlayer=$(( fig < 0 ? -1 : 1 ))
 					# a more simple heuristic would be values=$(( $values + $fig ))
+
+					# figPlayer: white=1, black =-1
+					# fig: piece number identifier
+					# figValues: material piece value
+					# ${figValues[$fig]} * figPlayer = material total value
+
+					#(( values += ${figValues[$fig]} * figPlayer ))
 					(( values += ${figValues[$fig * $figPlayer]} * figPlayer ))
+
 					# pawns near to end are better
 					if (( fig == 1 )) ; then
 						if (( figPlayer > 0 )) ; then
@@ -884,7 +924,7 @@ function negamax() {
 			done
 		done
 		values=$(( 127 + ( player * values ) ))
-		# ensure valid bash return range
+		# ensure valid bash return range [0-255]
 		if (( values > 253 - strength )) ; then
 			values=$(( 253 - strength ))
 		elif (( values < 2 + strength )) ; then
@@ -969,7 +1009,7 @@ function negamax() {
 							fi
 						done
 					fi
-					# rock or queen
+					# rook or queen
 					if (( fig != 3 )) ; then
 						for (( i=-8 ; i<=8 ; i++ )) ; do
 							if (( i != 0 )) ; then
@@ -1038,6 +1078,7 @@ function negamax() {
 		fi
 		return $bestVal
 	fi
+#set +x
 }
 
 # Perform a concrete single movement
@@ -1142,9 +1183,12 @@ function drawField(){
 		fi
 		# line number (alpha numeric)
 		if $unicodelabels ; then
-			echo -en "$(unicode e2 92 bd -$y) "
+			echo -en "$(unicode e2 9e 87 -"$y" )\e[0m "
 		else
-			echo -en " \x$((48 - $y))"
+			if $ascii ; then
+				echo -n " "
+			fi
+			echo -en "\x$((38 - y))\e[0m "
 		fi
 		# clear format
 	# draw horizontal labels
@@ -1166,13 +1210,13 @@ function drawField(){
 		else
 			echo -en "\e[0m"
 		fi
+		# row labels
 		if $unicodelabels ; then
-			echo -en "$(unicode e2 9e 80 $x )\e[0m "
+			#echo -en "$(unicode e2 92 b6 "$x") " # uppercase
+			echo -en "$(unicode e2 93 90 "$x") "  # lowercase
 		else
-			if $ascii ; then
-				echo -n " "
-			fi
-			echo -en "\x$((31 + $x))\e[0m "
+			#echo -en " \x$((41 + x))"  # uppercase
+			echo -en " \x$((61 + x))"   # lowercase
 		fi
 	# draw field
 	elif (( y >=0 && y < 8 && x >= 0 && x < 8 )) ; then
@@ -1304,6 +1348,7 @@ function draw() {
 # or use mouse input (if available)
 # Returns 0 on success and 1 on abort
 function inputCoord(){
+  #set -x
 	inputY=-1
 	inputX=-1
 	local ret=0
@@ -1318,10 +1363,10 @@ function inputCoord(){
 		echo -en "\e[?9h"
 	fi
 	while (( inputY < 0 || inputY >= 8 || inputX < 0  || inputX >= 8 )) ; do
-		read -sN1 a
+		read -r -sN1 a
 		case "$a" in
 			$'\e' )
-				if read -t0.1 -sN2 b ; then
+				if read -r -t0.1 -sN2 b ; then
 					case "$b" in
 						'[A' | 'OA' )
 							hoverInit=true
@@ -1389,14 +1434,14 @@ function inputCoord(){
 							fi
 							;;
 						'[M' )
-							read -sN1 t
-							read -sN1 tx
-							read -sN1 ty
-							ty=$(( $(ord "$ty") - 32 - originY ))
+							read -r -sN1 t
+							read -r -sN1 tx
+							read -r -sN1 ty
+							ty=$(( $(ord "$ty" ) - 32 - originY ))
 							if $ascii ; then
-								tx=$(( ( $(ord "$tx") - 32 - originX) / 3 ))
+								tx=$(( ( $(ord "$tx" ) - 32 - originX) / 3 ))
 							else
-								tx=$(( ( $(ord "$tx") - 32 - originX) / 2 ))
+								tx=$(( ( $(ord "$tx" ) - 32 - originX) / 2 ))
 							fi
 							if (( tx >= 0 && tx < 8 && ty >= 0 && ty < 8 )) ; then
 								inputY=$ty
@@ -1432,17 +1477,17 @@ function inputCoord(){
 				break
 				;;
 			[A-Ha-h] )
-				t=$(ord $a)
+				t=$(ord "$a")
 				if (( t < 90 )) ; then
-					inputY=$(( 72 - $(ord $a) ))
+					inputX=$(( t - 65 ))
 				else
-					inputY=$(( 104 - $(ord $a) ))
+					inputX=$(( t - 97 ))
 				fi
-				hoverY=$inputY
+				hoverX=$inputX
 				;;
 			[1-8] )
-				inputX=$(( a - 1 ))
-				hoverX=$inputX
+				inputY=$(( 8 - a ))
+				hoverY=$inputY
 				;;
 			* )
 				bell
@@ -1459,6 +1504,7 @@ function inputCoord(){
 	fi
 	$useStty && stty -echo
 	return $ret
+	#set +x
 }
 
 # Player input
@@ -1467,6 +1513,7 @@ function inputCoord(){
 # 	$1	current (user) player
 # Returns status code 0
 function input() {
+	#set -x
 	local player=$1
 	SECONDS=0
 	message="\e[1m$(namePlayer "$player")\e[0m: Move your figure"
@@ -1484,7 +1531,8 @@ function input() {
 				warn "You cannot choose your enemies figures!" >&3
 			else
 				send "$player" "$selectedY" "$selectedX"
-				local figName=$(nameFigure ${field[$selectedY,$selectedX]} )
+				local figName
+				figName=$(nameFigure ${field[$selectedY,$selectedX]} )
 				message="\e[1m$(namePlayer "$player")\e[0m: Move your \e[3m$figName\e[0m at $(coord "$selectedY" "$selectedX") to"
 				draw >&3
 				if inputCoord ; then
@@ -1492,7 +1540,7 @@ function input() {
 					selectedNewX=$inputX
 					if (( selectedNewY == selectedY && selectedNewX == selectedX )) ; then
 						warn "You didn't move..." >&3
-					elif (( ${field[$selectedNewY,$selectedNewX]} * $player > 0 )) ; then
+					elif (( ${field[$selectedNewY,$selectedNewX]} * player > 0 )) ; then
 						warn "You cannot kill your own figures!" >&3
 					elif move "$player" ; then
 						title="$(namePlayer "$player") moved the \e[3m$figName\e[0m from $(coord "$selectedY" "$selectedX") to $(coord "$selectedNewY" "$selectedNewX") \e[2m(took him $SECONDS seconds)\e[0m"
@@ -1507,6 +1555,7 @@ function input() {
 			fi
 		fi
 	done
+	#set +x
 }
 
 # AI interaction
@@ -1529,7 +1578,7 @@ function ai() {
 	draw >&3
 	send "$player" "$selectedY" "$selectedX"
 	sleep "$sleep"
-	if move $player ; then
+	if move "$player" ; then
 		message="\e[1m$( namePlayer "$player" )\e[0m moves the \e[3m$figName\e[0m at $(coord "$selectedY" "$selectedX") to $(coord "$selectedNewY" "$selectedNewX")"
 		draw >&3
 		send "$player" "$selectedNewY" "$selectedNewX"
@@ -1540,40 +1589,40 @@ function ai() {
 	fi
 }
 
-# Read row from remote
-# Returns row (0-7) as status code
-function receiveY() {
-	local i
-	while true; do
-		read -n 1 i
-		case $i in
-			[hH] ) return 0 ;;
-			[gG] ) return 1 ;;
-			[fF] ) return 2 ;;
-			[eE] ) return 3 ;;
-			[dD] ) return 4 ;;
-			[cC] ) return 5 ;;
-			[bB] ) return 6 ;;
-			[aA] ) return 7 ;;
-			* )
-				if $warnings ; then
-					warn "Invalid input '$i' for row from network (character between 'A' and 'H' required)!"
-				fi
-		esac
-	done
-}
-
 # Read column from remote
 # Returns column (0-7) as status code
 function receiveX() {
 	local i
 	while true; do
-		read -n 1 i
+		read -r -n 1 i
+		case $i in
+			[hH] ) return 7 ;;
+			[gG] ) return 6 ;;
+			[fF] ) return 5 ;;
+			[eE] ) return 4 ;;
+			[dD] ) return 3 ;;
+			[cC] ) return 2 ;;
+			[bB] ) return 1 ;;
+			[aA] ) return 0 ;;
+			* )
+				if $warnings ; then
+					warn "Invalid input '$i' for column from network (character between 'A' and 'H' required)!"
+				fi
+		esac
+	done
+}
+
+# Read row from remote
+# Returns row (0-7) as status code
+function receiveY() {
+	local i
+	while true; do
+		read -r -n 1 i
 		case $i in
 			[1-8] ) return $(( i - 1 )) ;;
 			* )
 				if $warnings ; then
-					warn "Invalid input '$i' for column from network (character between '1' and '8' required)!"
+					warn "Invalid input '$i' for row from network (character between '1' and '8' required)!"
 				fi
 		esac
 	done
@@ -1643,7 +1692,7 @@ function send() {
 # by reading serialised cache from stdin
 # (no params / return value)
 function importCache() {
-	while IFS=$'\t' read hash lookup depth flag ; do
+	while IFS=$'\t' read -r hash lookup depth flag ; do
 		cacheLookup["$hash"]=$lookup
 		cacheDepth["$hash"]=$depth
 		cacheFlag["$hash"]=$flag
@@ -1702,6 +1751,7 @@ function end() {
 trap "end" 0
 
 # setting up requirements for network
+set -x
 piper="cat"
 fifopipe="/dev/fd/1"
 initializedGameLoop=true
@@ -1754,12 +1804,12 @@ fi
 			warn "Waiting for the other network player to be ready..." >&3
 			# exchange names
 			if (( remote == -1 )) ; then
-				read namePlayerA < $fifopipe
+				read -r namePlayerA < $fifopipe
 				echo "$namePlayerB"
 				echo "connected with first player." >&3
 			elif (( remote == 1 )) ; then
 				echo "$namePlayerA"
-				read namePlayerB < $fifopipe
+				read -r namePlayerB < $fifopipe
 				echo "connected with second player." >&3
 			fi
 			# set this loop initialized
@@ -1803,4 +1853,4 @@ fi
 		error "The game ended unexpected!"
 	fi
 } 3>&1
-
+set +x
