@@ -367,10 +367,8 @@ done
 echo -en '\e[18t'
 if read -r -d "t" -s -t 1 tmp ; then
 	termDim=("${tmp//;/ }")
-	termHeight=${termDim[1]}
 	termWidth=${termDim[2]}
 else
-	termHeight=24
 	termWidth=80
 fi
 
@@ -870,7 +868,7 @@ function negamax() {
 	# transposition table
 	local aSave=$a
 	local hash
-	hash="$player ${field[@]}"
+	hash="$player ${field[*]}"
 	if ! $save && test "${cacheLookup[$hash]+set}" && (( ${cacheDepth[$hash]} >= depth )) ; then
 		local value=${cacheLookup[$hash]}
 		local flag=${cacheFlag[$hash]}
@@ -1327,7 +1325,6 @@ function draw() {
 				if [[ "${redraw[$ty,$tx]}" != "$t" ]]; then
 					echo -n "$t"
 					redraw[$ty,$tx]="$t"
-					log="[$ty,$tx]"
 				fi
 			else
 				drawField "$ty" "$tx" false
