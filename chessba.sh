@@ -4,14 +4,12 @@
 # a simple chess game written in an inappropriate language :)
 #
 # Copyright (c) 2015 by Bernhard Heinloth <bernhard@heinloth.net>
+# Copyright (c) 2021 by Igor Le Masson
 #
 # This program is free software; you can redistribute it and/or modify it under the terms of the GNU General Public License as published by the Free Software Foundation; either version 2 of the License, or (at your option) any later version.
 # This program is distributed in the hope that it will be useful, but WITHOUT ANY WARRANTY; without even the implied warranty of MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the GNU General Public License for more details.
 # You should have received a copy of the GNU General Public License along with this program; if not, write to the Free Software Foundation, Inc., 51 Franklin Street, Fifth Floor, Boston, MA 02110-1301 USA.
-#
-# ---------------------------------------------------------------
-# Forked version from https://github.com/IgorLeMasson/chessbash
-# ---------------------------------------------------------------
+
 
 # Bash version test
 if ((BASH_VERSINFO[0] < 4)); then
@@ -863,7 +861,6 @@ function canMove() {
 # Returns best value as status code
 # negamax "$strength" 0 255 "$player" true
 function negamax() {
-	#set -x
 	LC_ALL=C
 	local depth=$1
 	local a=$2
@@ -1348,7 +1345,6 @@ function draw() {
 # or use mouse input (if available)
 # Returns 0 on success and 1 on abort
 function inputCoord(){
-  #set -x
 	inputY=-1
 	inputX=-1
 	local ret=0
@@ -1513,7 +1509,6 @@ function inputCoord(){
 # 	$1	current (user) player
 # Returns status code 0
 function input() {
-	#set -x
 	local player=$1
 	SECONDS=0
 	message="\e[1m$(namePlayer "$player")\e[0m: Move your figure"
@@ -1751,7 +1746,6 @@ function end() {
 trap "end" 0
 
 # setting up requirements for network
-set -x
 piper="cat"
 fifopipe="/dev/fd/1"
 initializedGameLoop=true
@@ -1853,4 +1847,3 @@ fi
 		error "The game ended unexpected!"
 	fi
 } 3>&1
-set +x

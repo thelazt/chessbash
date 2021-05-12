@@ -1,14 +1,18 @@
 Chess Bash
 ==========
+
 A simple chess game written in a bash script.
+
 
 Screenshot
 ----------
+
 Running in GNOME-Terminal on Ubuntu 14.04 with default configuration - just increased font size.
 ![ChessBa.sh in action](screenshot.png?raw=true)
 
 Features
 --------
+
   * Pure Bash script
   * Chess engine / computer enemy (and even computer versus computer)
   * Unicode support (nice figures to represent the pieces)
@@ -24,6 +28,7 @@ Features
 
 Usage
 -----
+
 No installation or configuration required, of course.
 Just make it executable ( `chmod +x chessba.sh` ) and start the script by typing (obviously):
 
@@ -40,6 +45,7 @@ Additional modes and settings are available; to list them just take a look at
 
 Rules
 -----
+
 For simplicity, there are some cutbacks on the implemented [chess rules](http://en.wikipedia.org/wiki/Rules_of_chess) (yet).
 Besides the basic movement of pieces only the pawn promotion is considered - with the limitation that pawns automatically become queens. So castle and en passant moves are not yet implemented.
 
@@ -50,13 +56,15 @@ These limitations are at the moment mainly based on the lack of an easy incorpor
 
 Tips and Tricks
 ---------------
+
   * Invalid piece selections/moves are discarded with an warning message. If you've chosen the wrong piece at the input, just re-enter the same coordinates and now you can select another piece.
   * For a better gaming experience (= bigger and nicer pieces), use [Ubunto Mono](http://font.ubuntu.com/#charset-mono-regular) or [Droid Sans Mono](http://www.droidfonts.com/info/droid-sans-mono-fonts/).
   * If you start a multiplayer game, the first player (with the script parameter `-b "remote"`) should run the game script first, because he acts as server.
 
 
-But why Bash??? (Notes from original author)
+But why Bash???
 ---------------
+
 In a normal case, nobody will ask for the motivation - but in this special case it seems necessary to explain it:
 
 Well, I started playing chess again because my girlfriend wanted to learn the game - and I rediscovered some notes about game theory.
@@ -80,6 +88,7 @@ And if you are crazy enough to look at the code: The main part was written there
 
 Internals
 ---------
+
 **Algorithm:**
 While I first started with a classic [Minimax](http://en.wikipedia.org/wiki/Minimax) it was gradually enhanced, the current version uses [Negamax with Alpha/Beta pruning and transposition table](http://en.wikipedia.org/wiki/Negamax#NegaMax_with_Alpha_Beta_Pruning_and_Transposition_Tables).
 
@@ -90,6 +99,7 @@ Of course, **builtin** solutions are preferred where available (as every script 
 
 Contribute
 ----------
+
 If you have an idea, for example how to speed up the code (without using another language!), just let me know!
 
 But always remember: This is just a recent fun project emerged by a few boring hours.
