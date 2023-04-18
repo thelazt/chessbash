@@ -1635,7 +1635,7 @@ function receive() {
 		selectedX=$?
 		local figName
 		figName=$(nameFigure ${field[$selectedY,$selectedX]} )
-		message"\e[1m$( namePlayer "$player" )\e[0m moves the \e[3m$figName\e[0m at $(coord $selectedY $selectedX)..."
+		message="\e[1m$( namePlayer "$player" )\e[0m moves the \e[3m$figName\e[0m at $(coord $selectedY $selectedX)..."
 		draw >&3
 		receiveY
 		selectedNewY=$?
